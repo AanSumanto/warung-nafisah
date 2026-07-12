@@ -1,4 +1,5 @@
-import type { PrintConfig, PrinterAdapter, PrinterStatus } from '../types/printer';
+import type { PrintConfig, PrinterAdapter, PrinterReadiness, PrinterStatus } from '../types/printer';
+import { RawBtPrinterAdapter } from './RawBtPrinterAdapter';
 
 const CHUNK_SIZE = 512;
 
@@ -108,6 +109,22 @@ export class BlueprintEco58BluetoothAdapter implements PrinterAdapter {
     await this.write(data);
   }
 
+  async preview(_data: Uint8Array): Promise<void> {
+    if (!this.characteristic) {
+      throw new Error('Printer belum terhubung');
+    }
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+  }
+
+  async getReadiness(): Promise<PrinterReadiness> {
+    const available = await this.isAvailable();
+    if (!available) return 'unavailable';
+    return this.isConnected() ? 'ready' : 'not_connected';
+  }
+
   private async write(data: Uint8Array): Promise<void> {
     if (!this.characteristic) {
       throw new Error('Printer belum terhubung');
@@ -169,6 +186,20 @@ export class BrowserPrintAdapter implements PrinterAdapter {
     await this.print(data);
   }
 
+  async preview(_data: Uint8Array): Promise<void> {
+    if (!this.pendingHtml) {
+      throw new Error('HTML receipt belum disiapkan');
+    }
+  }
+
+  async isAvailable(): Promise<boolean> {
+    return typeof window !== 'undefined';
+  }
+
+  async getReadiness(): Promise<PrinterReadiness> {
+    return (await this.isAvailable()) ? 'ready' : 'unavailable';
+  }
+
   private triggerBrowserPrint(html: string, styles: string): Promise<void> {
     return new Promise((resolve) => {
       const styleEl = document.createElement('style');
@@ -190,6 +221,9 @@ export class BrowserPrintAdapter implements PrinterAdapter {
 }
 
 export function createPrinterAdapter(config: PrintConfig): PrinterAdapter {
+  if (config.printerType === 'rawbt') {
+    return new RawBtPrinterAdapter();
+  }
   if (config.printerType === 'blueprint-eco58') {
     return new BlueprintEco58BluetoothAdapter();
   }

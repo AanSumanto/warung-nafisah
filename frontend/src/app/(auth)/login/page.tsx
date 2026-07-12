@@ -4,7 +4,7 @@ import TextField from '@mui/material/TextField';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { z } from 'zod';
-import { AppButton, AppCard, AppForm } from '@/shared/components/ui';
+import { AppButton, AppCard, AppForm, PasswordField } from '@/shared/components/ui';
 import { useSnackbar } from '@/shared/hooks';
 import { getClientEnv } from '@/shared/lib/env';
 import { getSafeRedirectPath } from '@/shared/lib/safe-redirect';
@@ -64,10 +64,9 @@ function LoginForm() {
               helperText={methods.formState.errors.email?.message}
               {...methods.register('email')}
             />
-            <TextField
+            <PasswordField
               fullWidth
               label="Password"
-              type="password"
               autoComplete="current-password"
               error={Boolean(methods.formState.errors.password)}
               helperText={methods.formState.errors.password?.message}

@@ -2,11 +2,10 @@
 
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { z } from 'zod';
 import { useChangePassword } from '@/features/auth/hooks';
-import { AppButton, AppForm } from '@/shared/components/ui';
+import { AppButton, AppForm, PasswordField } from '@/shared/components/ui';
 import { useSnackbar } from '@/shared/hooks';
 
 const changePasswordSchema = z
@@ -71,28 +70,25 @@ export function ChangePasswordForm() {
       >
         {(methods) => (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
+            <PasswordField
               fullWidth
               label="Password saat ini"
-              type="password"
               autoComplete="current-password"
               error={Boolean(methods.formState.errors.currentPassword)}
               helperText={methods.formState.errors.currentPassword?.message}
               {...methods.register('currentPassword')}
             />
-            <TextField
+            <PasswordField
               fullWidth
               label="Password baru"
-              type="password"
               autoComplete="new-password"
               error={Boolean(methods.formState.errors.newPassword)}
               helperText={methods.formState.errors.newPassword?.message ?? 'Minimal 8 karakter'}
               {...methods.register('newPassword')}
             />
-            <TextField
+            <PasswordField
               fullWidth
               label="Konfirmasi password baru"
-              type="password"
               autoComplete="new-password"
               error={Boolean(methods.formState.errors.confirmPassword)}
               helperText={methods.formState.errors.confirmPassword?.message}

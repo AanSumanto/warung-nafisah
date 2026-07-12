@@ -9,7 +9,22 @@ All notable changes to the Warung Nafisah ERP project documentation.
 ### Planned
 
 - ADR-001 multi-repo migration
-- Sprint 5+: Inventory (blocked until Sprint 4.5 approval)
+- Sprint 5+: Inventory (blocked until Sprint 4.5.3 approval)
+
+---
+
+## [0.11.3] — 2026-07-12 — Sprint 4.5.3 RawBT Bluetooth Printing Bridge
+
+### Added
+
+- `RawBtPrinterAdapter` for Blueprint BP-ECO58 via RawBT (Android intent + ESC/POS base64)
+- Printer config UI on `/profil`, readiness chip, RawBT install dialog
+- Snackbar print feedback; reprint flow uses `PrintService.reprint()`
+- `reports/printing/rawbt-bridge.md`
+
+### Not Included
+
+- Web Bluetooth SPP, native Android bridge, kitchen printer, print queue worker
 
 ---
 

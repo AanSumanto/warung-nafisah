@@ -39,6 +39,7 @@ export default function PosHistoryPage() {
       <ReceiptPreviewSheet
         open={Boolean(reprintOrder)}
         order={reprintOrder}
+        mode="reprint"
         onClose={() => setReprintOrder(null)}
       />
 

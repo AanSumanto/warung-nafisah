@@ -1,23 +1,26 @@
-import type { PrintConfig } from '../types/printer';
+import type { PrintConfig, PrinterType } from '../types/printer';
 import type { ReceiptBusinessConfig } from '../types/receipt';
 import { getClientEnv } from '@/shared/lib/env';
+import { isAndroidDevice } from '../rawbt/rawbtBridge';
 
 const CONFIG_KEY = 'wn_print_config';
 
+function detectDefaultPrinterType(): PrinterType {
+  if (typeof window !== 'undefined' && isAndroidDevice()) {
+    return 'rawbt';
+  }
+  return 'browser';
+}
+
 const DEFAULT_PRINT_CONFIG: PrintConfig = {
-  printerType: 'browser',
+  printerType: detectDefaultPrinterType(),
+  printerName: 'Blueprint BP-ECO58',
+  connectionMethod: 'bluetooth',
+  bridge: 'rawbt',
   paperWidth: '58mm',
   autoConnect: true,
   autoPrint: false,
-};
-
-const DEFAULT_BUSINESS: ReceiptBusinessConfig = {
-  businessName: 'WARUNG NAFISAH',
-  logo: null,
-  address: null,
-  phone: null,
-  footerMessage: 'Terima kasih.\nSelamat menikmati.',
-  paperWidth: '58mm',
+  printerConnected: false,
 };
 
 export function getPrintConfig(): PrintConfig {
@@ -39,6 +42,13 @@ export function savePrintConfig(config: Partial<PrintConfig>): PrintConfig {
   return next;
 }
 
+export function setRawBtPrinterConnected(connected: boolean): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('wn_rawbt_printer_connected', connected ? 'true' : 'false');
+  }
+  savePrintConfig({ printerConnected: connected });
+}
+
 export function getReceiptBusinessConfig(): ReceiptBusinessConfig {
   const appName = getClientEnv().NEXT_PUBLIC_APP_NAME.replace(' ERP', '').toUpperCase();
   const printConfig = getPrintConfig();
@@ -48,3 +58,12 @@ export function getReceiptBusinessConfig(): ReceiptBusinessConfig {
     paperWidth: printConfig.paperWidth,
   };
 }
+
+const DEFAULT_BUSINESS: ReceiptBusinessConfig = {
+  businessName: 'WARUNG NAFISAH',
+  logo: null,
+  address: null,
+  phone: null,
+  footerMessage: 'Terima kasih.\nSelamat menikmati.',
+  paperWidth: '58mm',
+};

@@ -14,6 +14,7 @@ import { ReceiptThermalView } from './ReceiptThermalView';
 interface ReceiptPreviewPanelProps {
   readonly receipt: Receipt;
   readonly printing?: boolean;
+  readonly printLabel?: string;
   readonly onPrint: () => void;
   readonly onBack: () => void;
   readonly variant?: 'drawer' | 'page';
@@ -23,6 +24,7 @@ interface ReceiptPreviewPanelProps {
 export function ReceiptPreviewPanel({
   receipt,
   printing = false,
+  printLabel = 'Cetak Struk',
   onPrint,
   onBack,
   variant = 'drawer',
@@ -48,7 +50,7 @@ export function ReceiptPreviewPanel({
         onClick={onPrint}
         sx={{ minHeight: 52, fontWeight: 800, mb: 1 }}
       >
-        Cetak Struk
+        {printLabel}
       </AppButton>
       <AppButton
         variant="outlined"

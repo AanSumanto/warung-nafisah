@@ -8,3 +8,5 @@ export { AppDialog } from './AppDialog';
 export type { AppDialogProps } from './AppDialog';
 export { AppForm } from './AppForm';
 export type { AppFormProps } from './AppForm';
+export { PasswordField } from './PasswordField';
+export type { PasswordFieldProps } from './PasswordField';
