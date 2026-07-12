@@ -6,8 +6,7 @@ import {
   ReceiptBuilder,
   ReceiptPreviewPanel,
   RawBtNotInstalledDialog,
-  printReceipt,
-  reprintReceipt,
+  printReceiptSync,
   getReceiptBusinessConfig,
   isRawBtNotInstalledError,
   type Receipt,
@@ -38,7 +37,7 @@ export function ReceiptPreviewSheet({
   const receipt: Receipt = ReceiptBuilder.build(order, getReceiptBusinessConfig());
   const isReprint = mode === 'reprint';
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     setPrinting(true);
     enqueueSnackbar(isReprint ? 'Mengirim cetak ulang…' : 'Mengirim ke printer…', {
       variant: 'info',
@@ -46,11 +45,7 @@ export function ReceiptPreviewSheet({
     });
 
     try {
-      if (isReprint) {
-        await reprintReceipt(receipt);
-      } else {
-        await printReceipt(receipt);
-      }
+      printReceiptSync(receipt);
       enqueueSnackbar(isReprint ? 'Cetak ulang dikirim ke RawBT' : 'Struk dikirim ke printer', {
         variant: 'success',
       });
@@ -76,7 +71,7 @@ export function ReceiptPreviewSheet({
         variant="drawer"
         printing={printing}
         printLabel={isReprint ? 'Cetak Ulang' : 'Cetak Struk'}
-        onPrint={() => void handlePrint()}
+        onPrint={handlePrint}
         onBack={onClose}
       />
       <RawBtNotInstalledDialog open={rawBtDialogOpen} onClose={() => setRawBtDialogOpen(false)} />

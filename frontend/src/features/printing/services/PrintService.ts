@@ -6,6 +6,8 @@ import { EscPosRenderer } from '../renderers/EscPosRenderer';
 import { PreviewRenderer } from '../renderers/PreviewRenderer';
 import { createPrinterAdapter } from '../adapters/PrinterAdapters';
 import { RawBtPrinterAdapter } from '../adapters/RawBtPrinterAdapter';
+import { dispatchRawBtPrint, isAndroidDevice, RAWBT_MIME_TYPE, RAWBT_RENDERER } from '../rawbt/rawbtBridge';
+import { summarizeReceiptForLog } from '../rawbt/rawbtLogger';
 import { getPrintConfig } from '../config/printConfig';
 import { PrintQueue } from './PrintQueue';
 
@@ -72,7 +74,32 @@ export class PrintService {
     }
   }
 
+  /**
+   * RawBT intent must fire synchronously inside the user click gesture.
+   * Any `await` before dispatch breaks Chrome Android intent delivery (WRC error).
+   */
+  private dispatchRawBtNow(receipt: Receipt): void {
+    if (!isAndroidDevice()) {
+      throw new Error('RawBT hanya tersedia di perangkat Android');
+    }
+
+    const escPosData = this.renderEscPos(receipt);
+    this.attachReceiptContext(receipt);
+
+    dispatchRawBtPrint(escPosData, {
+      renderer: RAWBT_RENDERER,
+      mimeType: RAWBT_MIME_TYPE,
+      orderNumber: receipt.orderNumber,
+      receiptSummary: summarizeReceiptForLog(receipt),
+    });
+  }
+
   private async sendEscPosToAdapter(receipt: Receipt, action: 'print' | 'reprint'): Promise<void> {
+    if (this.adapter instanceof RawBtPrinterAdapter && isAndroidDevice()) {
+      this.dispatchRawBtNow(receipt);
+      return;
+    }
+
     await this.ensureConnected();
     const escPosData = this.renderEscPos(receipt);
     this.attachReceiptContext(receipt);
@@ -80,6 +107,25 @@ export class PrintService {
       await this.adapter.print(escPosData);
     } else {
       await this.adapter.reprint(escPosData);
+    }
+  }
+
+  /** Synchronous print for RawBT — call directly from button onClick without awaiting first. */
+  printReceiptSync(receipt: Receipt): void {
+    const job = this.queue.enqueue(receipt);
+    this.queue.markStatus(job.id, 'processing');
+
+    try {
+      if (this.adapter instanceof RawBtPrinterAdapter) {
+        this.dispatchRawBtNow(receipt);
+      } else {
+        throw new Error('Cetak sinkron hanya didukung untuk RawBT');
+      }
+      this.queue.markStatus(job.id, 'completed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Print gagal';
+      this.queue.markStatus(job.id, 'failed', message);
+      throw error;
     }
   }
 
@@ -94,6 +140,11 @@ export class PrintService {
    * Flow: Receipt → ESC/POS → Printer Adapter → RawBT → Printer
    */
   async printReceipt(receipt: Receipt): Promise<void> {
+    if (this.adapter instanceof RawBtPrinterAdapter && isAndroidDevice()) {
+      this.printReceiptSync(receipt);
+      return;
+    }
+
     const job = this.queue.enqueue(receipt);
     this.queue.markStatus(job.id, 'processing');
 
@@ -113,6 +164,10 @@ export class PrintService {
   }
 
   async reprintReceipt(receipt: Receipt): Promise<void> {
+    if (this.adapter instanceof RawBtPrinterAdapter && isAndroidDevice()) {
+      this.dispatchRawBtNow(receipt);
+      return;
+    }
     await this.sendEscPosToAdapter(receipt, 'reprint');
   }
 
@@ -148,6 +203,11 @@ export function resetPrintService(): void {
 /** POS-facing API — print from Receipt Object only. */
 export async function printReceipt(receipt: Receipt): Promise<void> {
   return getPrintService().printReceipt(receipt);
+}
+
+/** Synchronous RawBT dispatch — use from onClick before any await. */
+export function printReceiptSync(receipt: Receipt): void {
+  getPrintService().printReceiptSync(receipt);
 }
 
 export async function reprintReceipt(receipt: Receipt): Promise<void> {

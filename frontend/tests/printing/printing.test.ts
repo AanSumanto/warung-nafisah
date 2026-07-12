@@ -13,6 +13,7 @@ import {
   buildRawBtIntentUrl,
   buildRawBtSchemeUrl,
   dispatchRawBtPrint,
+  navigateRawBtIntent,
   isAndroidDevice,
 } from '@/features/printing/rawbt/rawbtBridge';
 import { isActivityNotFoundError } from '@/features/printing/rawbt/rawbtLogger';
@@ -174,25 +175,27 @@ describe('rawbt bridge', () => {
     Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true });
   });
 
-  it('dispatches via rawbt:base64 scheme anchor (not intent location)', () => {
+  it('dispatches via Mike42 intent URL (window.location.href)', () => {
     const bytes = new Uint8Array([0x1b, 0x40, 0x0a]);
-    const click = vi.fn();
-    const remove = vi.fn();
-    const appendChild = vi.fn();
-    const link = { href: '', style: { display: '' }, click, remove } as unknown as HTMLAnchorElement;
-    const mockDocument = {
-      createElement: vi.fn().mockReturnValue(link),
-      body: { appendChild },
-    };
+    const location = { href: '' };
 
-    vi.stubGlobal('window', {});
-    vi.stubGlobal('document', mockDocument);
+    vi.stubGlobal('window', { location });
+    vi.stubGlobal('document', {});
 
     dispatchRawBtPrint(bytes);
 
-    expect(link.href).toBe('rawbt:base64,G0AK');
-    expect(click).toHaveBeenCalledOnce();
-    expect(remove).toHaveBeenCalledOnce();
+    expect(location.href).toBe('intent:base64,G0AK#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('navigateRawBtIntent assigns window.location.href', () => {
+    const location = { href: '' };
+    vi.stubGlobal('window', { location });
+
+    navigateRawBtIntent('intent:base64,TEST#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;');
+
+    expect(location.href).toContain('intent:base64,TEST');
 
     vi.unstubAllGlobals();
   });
@@ -260,6 +263,24 @@ describe('PrintService', () => {
     resetPrintService();
   });
 
+  it('printReceiptSync dispatches RawBT without await', async () => {
+    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'isAndroidDevice').mockReturnValue(true);
+    const dispatch = vi
+      .spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint')
+      .mockImplementation(() => undefined);
+
+    const receipt = ReceiptBuilder.build(sampleOrder);
+    const service = new PrintService(rawbtConfig);
+
+    service.printReceiptSync(receipt);
+
+    expect(dispatch).toHaveBeenCalledOnce();
+    const payload = dispatch.mock.calls[0]?.[0];
+    expect(payload).toBeInstanceOf(Uint8Array);
+    expect(payload?.[0]).toBe(0x1b);
+    expect(payload?.[1]).toBe(0x40);
+  });
+
   it('printReceipt always uses ESC/POS renderer', async () => {
     vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'isAndroidDevice').mockReturnValue(true);
     vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint').mockImplementation(
@@ -277,19 +298,18 @@ describe('PrintService', () => {
     expect(escPos[1]).toBe(0x40);
   });
 
-  it('reprintReceipt uses adapter reprint with ESC/POS bytes', async () => {
-    const reprint = vi.fn().mockResolvedValue(undefined);
-    const service = new PrintService(rawbtConfig);
-    const adapter = service.getAdapter();
-    adapter.reprint = reprint;
-    adapter.connect = vi.fn().mockResolvedValue(undefined);
-    adapter.isConnected = () => true;
+  it('reprintReceipt dispatches RawBT sync on Android', async () => {
+    const dispatch = vi
+      .spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint')
+      .mockImplementation(() => undefined);
+    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'isAndroidDevice').mockReturnValue(true);
 
+    const service = new PrintService(rawbtConfig);
     const receipt = ReceiptBuilder.build(sampleOrder);
     await service.reprintReceipt(receipt);
 
-    expect(reprint).toHaveBeenCalledOnce();
-    expect(reprint.mock.calls[0]?.[0]).toBeInstanceOf(Uint8Array);
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch.mock.calls[0]?.[0]).toBeInstanceOf(Uint8Array);
   });
 });
 

@@ -8,7 +8,7 @@ import {
   ReceiptBuilder,
   ReceiptPreviewPanel,
   RawBtNotInstalledDialog,
-  printReceipt,
+  printReceiptSync,
   getReceiptBusinessConfig,
   isRawBtNotInstalledError,
 } from '@/features/printing';
@@ -40,11 +40,11 @@ export function ReceiptPreviewContent() {
     return <Typography color="error">Gagal memuat data struk.</Typography>;
   }
 
-  const handlePrint = async () => {
+  const handlePrint = () => {
     setPrinting(true);
     enqueueSnackbar('Mengirim ke printer…', { variant: 'info', preventDuplicate: true });
     try {
-      await printReceipt(receipt);
+      printReceiptSync(receipt);
       enqueueSnackbar('Struk dikirim ke printer', { variant: 'success' });
     } catch (error) {
       if (isRawBtNotInstalledError(error)) {
@@ -68,7 +68,7 @@ export function ReceiptPreviewContent() {
         receipt={receipt}
         variant="page"
         printing={printing}
-        onPrint={() => void handlePrint()}
+        onPrint={handlePrint}
         onBack={() => undefined}
       />
       <RawBtNotInstalledDialog open={rawBtDialogOpen} onClose={() => setRawBtDialogOpen(false)} />

@@ -75,20 +75,35 @@ function assertEscPosPayload(bytes: Uint8Array): void {
   }
 }
 
-/** Open a RawBT URI without navigating the SPA away from the current page. */
-export function openRawBtUri(uri: string): void {
-  const link = document.createElement('a');
-  link.href = uri;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+function verifyBase64RoundTrip(bytes: Uint8Array, base64Data: string): boolean {
+  try {
+    if (typeof Buffer !== 'undefined') {
+      const decoded = Buffer.from(base64Data, 'base64');
+      return decoded.length === bytes.length && decoded.every((value, index) => value === bytes[index]);
+    }
+
+    const binary = atob(base64Data);
+    if (binary.length !== bytes.length) return false;
+    for (let i = 0; i < bytes.length; i++) {
+      if (binary.charCodeAt(i) !== bytes[i]) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Dispatch via Mike42 intent URL.
+ * Must run synchronously inside a user gesture (print button click) — do not await before calling.
+ */
+export function navigateRawBtIntent(intentUri: string): void {
+  window.location.href = intentUri;
 }
 
 /**
  * Dispatch ESC/POS bytes to RawBT.
- * Uses `rawbt:base64,<data>` — the official binary channel (DemoRawBtPrinter test2).
- * Intent URI is logged for audit only; URL-encoding base64 corrupts RawBT decode (WRC error).
+ * Uses official `intent:base64,<data>#Intent;scheme=rawbt;...` (Mike42 / node-escpos RawBT adapter).
  */
 export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchContext = {}): void {
   if (typeof window === 'undefined') {
@@ -98,8 +113,9 @@ export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchCont
   assertEscPosPayload(bytes);
 
   const base64Data = bytesToBase64(bytes);
-  const schemeUri = buildRawBtSchemeUrl(base64Data);
   const intentUri = buildRawBtIntentUrl(base64Data);
+  const schemeUri = buildRawBtSchemeUrl(base64Data);
+  const roundTripOk = verifyBase64RoundTrip(bytes, base64Data);
 
   rawbtLog.info('dispatch:prepare', {
     renderer: context.renderer ?? RAWBT_RENDERER,
@@ -110,19 +126,25 @@ export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchCont
     payloadBase64Length: base64Data.length,
     payloadPreview: base64Preview(base64Data),
     payloadPreviewHex: bytesPreviewHex(bytes),
-    schemeUri,
+    base64RoundTripOk: roundTripOk,
     intentUri,
+    schemeUri,
   });
 
+  if (!roundTripOk) {
+    rawbtLog.error('dispatch:base64-roundtrip-failed', { payloadLength: bytes.length });
+    throw new Error('Gagal mengenkode data struk untuk RawBT');
+  }
+
   try {
-    rawbtLog.info('dispatch:attempt', { method: 'scheme', mimeType: RAWBT_MIME_TYPE, schemeUri });
-    openRawBtUri(schemeUri);
-    rawbtLog.info('dispatch:callback', { method: 'scheme', status: 'dispatched' });
+    rawbtLog.info('dispatch:attempt', { method: 'intent', mimeType: RAWBT_MIME_TYPE, intentUri });
+    navigateRawBtIntent(intentUri);
+    rawbtLog.info('dispatch:callback', { method: 'intent', status: 'dispatched' });
   } catch (error) {
     rawbtLog.error('dispatch:error', {
-      method: 'scheme',
+      method: 'intent',
       error: error instanceof Error ? error.message : String(error),
-      schemeUri,
+      intentUri,
     });
 
     if (isActivityNotFoundError(error)) {

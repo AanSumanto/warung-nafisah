@@ -13,10 +13,7 @@ const LF = 0x0a;
 
 const CMD = {
   init: () => new Uint8Array([ESC, 0x40]),
-  alignCenter: () => new Uint8Array([ESC, 0x61, 1]),
   alignLeft: () => new Uint8Array([ESC, 0x61, 0]),
-  boldOn: () => new Uint8Array([ESC, 0x45, 1]),
-  boldOff: () => new Uint8Array([ESC, 0x45, 0]),
   feed: (lines = 1) => new Uint8Array(Array(lines).fill(LF)),
   cut: () => new Uint8Array([GS, 0x56, 0]),
 };
@@ -53,34 +50,20 @@ function pushLine(chunks: Uint8Array[], line: ThermalReceiptLine, profile: Print
   const width = profile.charsPerLine;
 
   if (line.kind === 'heavy-separator' || line.kind === 'light-separator') {
-    chunks.push(CMD.alignCenter(), textLine(line.text ?? ''));
-    chunks.push(CMD.alignLeft());
+    chunks.push(textLine(line.text ?? ''));
     return;
   }
 
   if (line.kind === 'field-block' && line.label && line.value) {
-    chunks.push(CMD.alignLeft(), textLine(line.label));
+    chunks.push(textLine(line.label));
     chunks.push(textLine(line.value));
     return;
   }
 
   if (line.kind === 'amount-block' && line.label && line.value) {
-    chunks.push(CMD.alignLeft());
-    if (line.weight === 'bold') chunks.push(CMD.boldOn());
     chunks.push(textLine(line.label));
     chunks.push(textLine(line.value));
-    if (line.weight === 'bold') chunks.push(CMD.boldOff());
     return;
-  }
-
-  if (line.align === 'center') {
-    chunks.push(CMD.alignCenter());
-  } else {
-    chunks.push(CMD.alignLeft());
-  }
-
-  if (line.weight === 'bold') {
-    chunks.push(CMD.boldOn());
   }
 
   let content = line.text ?? '';
@@ -89,12 +72,6 @@ function pushLine(chunks: Uint8Array[], line: ThermalReceiptLine, profile: Print
   }
 
   chunks.push(textLine(content));
-
-  if (line.weight === 'bold') {
-    chunks.push(CMD.boldOff());
-  }
-
-  chunks.push(CMD.alignLeft());
 }
 
 /**
@@ -109,14 +86,14 @@ export class EscPosRenderer {
   }
 
   render(receipt: Receipt): Uint8Array {
-    const chunks: Uint8Array[] = [CMD.init()];
+    const chunks: Uint8Array[] = [CMD.init(), CMD.alignLeft()];
     const lines = buildReceiptThermalLines(receipt, this.profile);
 
     for (const line of lines) {
       pushLine(chunks, line, this.profile);
     }
 
-    chunks.push(CMD.feed(4));
+    chunks.push(CMD.feed(3));
 
     if (this.profile.supportsCut) {
       chunks.push(CMD.cut());

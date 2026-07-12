@@ -30,6 +30,7 @@ export {
   buildRawBtIntentUrl,
   buildRawBtSchemeUrl,
   dispatchRawBtPrint,
+  navigateRawBtIntent,
   isAndroidDevice,
 } from './rawbt/rawbtBridge';
 export {
@@ -45,6 +46,7 @@ export {
   getPrintService,
   resetPrintService,
   printReceipt,
+  printReceiptSync,
   reprintReceipt,
 } from './services/PrintService';
 export {

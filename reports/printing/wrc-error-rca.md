@@ -2,56 +2,59 @@
 
 **Date:** 2026-07-12  
 **Symptom:** RawBT opens, shows **Sent: 2 / Received: 0** and **wrc error**  
-**Status:** Fix applied (round 2)
+**Status:** Fix applied (round 3)
 
 ## Summary
 
-**WRC Error** = RawBT could not deliver valid ESC/POS bytes to the printer. The app opens and Bluetooth is paired, but the decoded payload was corrupted.
+**WRC Error** on RawBT = Bluetooth write failed or payload corrupted before reaching the printer. After fixing URI format and base64 encoding, the remaining root cause is **broken user gesture** on Chrome Android.
 
 ## Root Causes
 
-### 1. URL-encoded base64 in intent (primary — round 2)
+### 1. Lost user gesture before intent dispatch (primary — round 3)
 
-`encodeURIComponent(base64Data)` was applied before sending. Mike42 `RawbtPrintConnector` uses **raw base64** with no encoding:
+Chrome Android requires a **synchronous** `window.location.href = intent:...` inside the print button click handler.
 
-```php
-echo "intent:base64," . base64_encode($this->getData()) . "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+Our flow was:
+
+```
+onClick → await printReceipt() → await ensureConnected() → await adapter.print() → dispatch
 ```
 
-RawBT decodes the base64 segment directly. Percent-encoded sequences (`%2B`, `%2F`, `%3D`) are **not** valid base64 → decode yields garbage (often only a few bytes) → **Sent: 2 / Received: 0** and **wrc error**.
+Any `await` before `window.location.href` exits the user-gesture context. Chrome then delivers a **truncated or invalid intent** to RawBT → decode yields ~2 bytes (`ESC @`) → **Sent: 2 / Received: 0** + **wrc error**.
 
-### 2. Wrong dispatch channel (secondary — round 2)
+Fix:
+- `printReceiptSync()` — no `await` before dispatch
+- POS buttons call `printReceiptSync()` directly from `onClick`
+- `PrintService.dispatchRawBtNow()` runs synchronously
 
-We used `window.location.href = intent:base64,...` which navigates the SPA and never reached the `rawbt:base64,` fallback (assignment does not throw).
+### 2. Wrong dispatch channel (round 2)
 
-Official binary channel per [DemoRawBtPrinter test2](https://github.com/402d/DemoRawBtPrinter):
+Anchor `href` assignment can normalize `+` in base64. Official web path is Mike42 intent via `window.location.href`:
 
-```java
-String url = "rawbt:base64," + base64ToPrint;
-Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+```
+intent:base64,<raw_base64>#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;
 ```
 
-Fix: dispatch `rawbt:base64,<raw_base64>` via hidden `<a>` click.
+### 3. URL-encoded base64 (round 2)
 
-### 3. Incorrect intent prefix (round 1 — already fixed)
+`encodeURIComponent` on base64 corrupts RawBT decode. Use raw base64 only.
 
-`intent:rawbt:base64,<data>` → must be `intent:base64,<data>#Intent;scheme=rawbt;...`
+### 4. ESC/POS complexity (round 3)
 
-### 4. UTF-8 in ESC/POS (round 1 — already fixed)
+Simplified renderer: plain text lines + single `ESC @` init, no per-line bold/align toggles (better BP-ECO58 compatibility).
 
-`TextEncoder` → Latin-1 single-byte encoding in `EscPosRenderer`.
+## Fix Applied (round 3)
 
-## Fix Applied (round 2)
-
-1. **Remove** `encodeURIComponent` from base64 in all RawBT URIs
-2. **Primary dispatch:** `rawbt:base64,<raw_base64>` via `openRawBtUri()` (anchor click)
-3. **Intent URI** kept for logging/audit only (Mike42 format, raw base64)
-4. **No** `window.location.href` navigation during print
+1. **`navigateRawBtIntent()`** — `window.location.href = intentUri` (Mike42)
+2. **`printReceiptSync()`** — synchronous dispatch from click handler
+3. **No `await ensureConnected()`** before RawBT dispatch
+4. **Simpler ESC/POS** — text-only lines after init
+5. **Base64 round-trip validation** before dispatch
 
 ## Verification on device
 
 1. Deploy latest frontend to Vercel
-2. Android Chrome → POS → Cetak Struk
-3. Console: `[RawBT] dispatch:attempt` method = `scheme`, URI starts with `rawbt:base64,`
-4. RawBT dialog: no **wrc error**; receipt prints on BP-ECO58
-5. If RawBT native Test Print works but web still fails, compare payload hex in console log
+2. Hard refresh Chrome (clear cache)
+3. POS → bayar → **Cetak Struk** (must tap button — not auto-print)
+4. RawBT should print full receipt without wrc error
+5. If still fails: RawBT → Settings → printer → verify Bluetooth Classic, 58mm / 384 dots, Test Print works
