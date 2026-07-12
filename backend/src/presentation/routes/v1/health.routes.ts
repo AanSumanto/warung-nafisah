@@ -41,8 +41,12 @@ healthRouter.get('/ready', async (_req, res) => {
   return ResponseWrapper.success(res, payload);
 });
 
-/** Detailed health */
+/** Detailed health — disabled in production to avoid infrastructure disclosure */
 healthRouter.get('/health', async (_req, res) => {
+  if (getEnv().NODE_ENV === 'production') {
+    return ResponseWrapper.error(res, 'SYS_002', 'Endpoint tidak ditemukan', 404);
+  }
+
   const env = getEnv();
   const [mongoPing, redisPing, queueOk] = await Promise.all([
     pingDatabase(),

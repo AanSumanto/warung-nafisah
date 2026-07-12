@@ -30,6 +30,12 @@ export class NotFoundException extends BaseException {
   }
 }
 
+export class ForbiddenException extends BaseException {
+  constructor(message = 'Akses ditolak', details?: Record<string, unknown>) {
+    super('AUTH_003', message, 403, details);
+  }
+}
+
 export class InfrastructureException extends BaseException {
   constructor(message: string, details?: Record<string, unknown>) {
     super('SYS_500', message, 503, details);

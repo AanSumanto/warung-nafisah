@@ -36,6 +36,19 @@ export function createApp(): express.Application {
   app.use(
     pinoHttp({
       logger,
+      serializers: {
+        req(req) {
+          const headers = { ...req.headers };
+          if (headers.authorization) {
+            headers.authorization = '[REDACTED]';
+          }
+          return {
+            method: req.method,
+            url: req.url,
+            headers,
+          };
+        },
+      },
       customProps: (req: express.Request) => ({
         requestId: req.context?.requestId,
         correlationId: req.context?.correlationId,

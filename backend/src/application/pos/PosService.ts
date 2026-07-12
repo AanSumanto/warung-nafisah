@@ -1,10 +1,10 @@
-import { NotFoundException, ValidationException } from '../../core/exceptions/BaseException.js';
+import { NotFoundException, ValidationException, ForbiddenException } from '../../core/exceptions/BaseException.js';
 import type { IRepository } from '../../core/persistence/IBaseRepository.js';
 import { Order } from '../../domain/pos/Order.js';
 import { OrderItem } from '../../domain/pos/OrderItem.js';
 import { Menu } from '../../domain/pos/Menu.js';
 import { Shift } from '../../domain/pos/Shift.js';
-import type { DiningType, PaymentMethod } from '../../domain/pos/PosTypes.js';
+import type { DiningType, PaymentMethod, UserRole } from '../../domain/pos/PosTypes.js';
 import type { MongoUnitOfWork } from '../../infrastructure/persistence/MongoUnitOfWork.js';
 import type { MongoOrderNumberGenerator } from '../../infrastructure/pos/MongoOrderNumberGenerator.js';
 import type { PaymentWriter } from '../../infrastructure/pos/PaymentWriter.js';
@@ -21,6 +21,25 @@ export interface CartItemInput {
   kodeMenu: string;
   qty: number;
   note?: string;
+}
+
+export interface RequesterContext {
+  readonly sub: string;
+  readonly role: UserRole;
+}
+
+function assertOrderAccess(order: Order, requester: RequesterContext): void {
+  if (requester.role === 'owner') return;
+  if (order.cashierId !== requester.sub) {
+    throw new ForbiddenException('Akses ditolak');
+  }
+}
+
+function assertShiftAccess(shift: Shift, requester: RequesterContext): void {
+  if (requester.role === 'owner') return;
+  if (shift.cashierId !== requester.sub) {
+    throw new ForbiddenException('Akses ditolak');
+  }
 }
 
 export interface PosServiceDeps {
@@ -83,9 +102,14 @@ export class PosService {
     return menus[0] ?? null;
   }
 
-  async updateOrderItems(orderId: string, items: CartItemInput[]): Promise<Order> {
+  async updateOrderItems(
+    orderId: string,
+    items: CartItemInput[],
+    requester: RequesterContext,
+  ): Promise<Order> {
     const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
     if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
     if (order.status !== 'draft') {
       throw new ValidationException('Hanya order draft yang dapat diubah');
     }
@@ -123,11 +147,13 @@ export class PosService {
     paymentMethod: PaymentMethod;
     paidAmount?: number;
     correlationId?: string;
+    requester: RequesterContext;
   }): Promise<Order> {
     const paidOrder = await this.deps.unitOfWork.execute(async () => {
       const session = this.deps.unitOfWork.getActiveSession();
       const order = await this.deps.orderRepository.findById(createIdentifier(input.orderId));
       if (!order) throw new NotFoundException('Order tidak ditemukan');
+      assertOrderAccess(order, input.requester);
 
       const tender =
         input.paidAmount !== undefined ? { paidAmount: input.paidAmount } : undefined;
@@ -146,20 +172,23 @@ export class PosService {
     return paidOrder;
   }
 
-  async getOrder(orderId: string): Promise<Order> {
+  async getOrder(orderId: string, requester: RequesterContext): Promise<Order> {
     const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
     if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
     return order;
   }
 
-  async listTodayOrders(): Promise<Order[]> {
-    const docs = await getOrderModel()
-      .find({
-        status: 'paid',
-        paidAt: { $gte: startOfToday(), $lte: endOfToday() },
-      })
-      .sort({ paidAt: -1 })
-      .lean();
+  async listTodayOrders(requester: RequesterContext): Promise<Order[]> {
+    const query: Record<string, unknown> = {
+      status: 'paid',
+      paidAt: { $gte: startOfToday(), $lte: endOfToday() },
+    };
+    if (requester.role !== 'owner') {
+      query.cashierId = requester.sub;
+    }
+
+    const docs = await getOrderModel().find(query).sort({ paidAt: -1 }).lean();
 
     return docs.map((doc) =>
       Order.reconstitute(
@@ -208,9 +237,10 @@ export class PosService {
     return this.deps.shiftRepository.save(shift);
   }
 
-  async closeShift(shiftId: string, closingCash: number): Promise<Shift> {
+  async closeShift(shiftId: string, closingCash: number, requester: RequesterContext): Promise<Shift> {
     const shift = await this.deps.shiftRepository.findById(createIdentifier(shiftId));
     if (!shift) throw new NotFoundException('Shift tidak ditemukan');
+    assertShiftAccess(shift, requester);
     const closed = shift.close(closingCash);
     return this.deps.shiftRepository.save(closed);
   }

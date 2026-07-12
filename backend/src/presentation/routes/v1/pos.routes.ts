@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { ResponseWrapper } from '../../../core/http/ResponseWrapper.js';
 import { ValidationException } from '../../../core/exceptions/BaseException.js';
@@ -8,7 +9,7 @@ import { createAuthMiddleware, requireRole } from '../../middleware/auth.middlew
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(1).max(128),
 });
 
 const createOrderSchema = z.object({
@@ -16,13 +17,15 @@ const createOrderSchema = z.object({
 });
 
 const updateItemsSchema = z.object({
-  items: z.array(
-    z.object({
-      kodeMenu: z.string().min(1),
-      qty: z.number().int().positive(),
-      note: z.string().optional(),
-    }),
-  ),
+  items: z
+    .array(
+      z.object({
+        kodeMenu: z.string().min(1).max(32),
+        qty: z.number().int().positive().max(999),
+        note: z.string().max(200).optional(),
+      }),
+    )
+    .max(100),
 });
 
 const payOrderSchema = z.object({
@@ -36,6 +39,20 @@ const openShiftSchema = z.object({
 
 const closeShiftSchema = z.object({
   closingCash: z.number().int().nonnegative(),
+});
+
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'AUTH_429',
+      message: 'Terlalu banyak percobaan login. Coba lagi nanti.',
+    },
+  },
 });
 
 function param(value: string | string[]): string {
@@ -81,7 +98,7 @@ export function createPosRouter(posService: PosService, authService: AuthService
   const router = Router();
   const auth = createAuthMiddleware(authService);
 
-  router.post('/auth/login', async (req, res, next) => {
+  router.post('/auth/login', loginRateLimit, async (req, res, next) => {
     try {
       const parsed = loginSchema.safeParse(req.body);
       if (!parsed.success) throw new ValidationException('Data login tidak valid');
@@ -124,7 +141,11 @@ export function createPosRouter(posService: PosService, authService: AuthService
     try {
       const parsed = updateItemsSchema.safeParse(req.body);
       if (!parsed.success) throw new ValidationException('Data item tidak valid');
-      const order = await posService.updateOrderItems(param(req.params.orderId), parsed.data.items);
+      const order = await posService.updateOrderItems(
+        param(req.params.orderId),
+        parsed.data.items,
+        req.user!,
+      );
       return ResponseWrapper.success(res, mapOrder(order));
     } catch (error) {
       next(error);
@@ -140,6 +161,7 @@ export function createPosRouter(posService: PosService, authService: AuthService
         paymentMethod: parsed.data.paymentMethod,
         paidAmount: parsed.data.paidAmount,
         correlationId: req.context?.correlationId,
+        requester: req.user!,
       });
       return ResponseWrapper.success(res, mapOrder(order));
     } catch (error) {
@@ -147,9 +169,9 @@ export function createPosRouter(posService: PosService, authService: AuthService
     }
   });
 
-  router.get('/orders/today', auth, async (_req, res, next) => {
+  router.get('/orders/today', auth, async (req, res, next) => {
     try {
-      const orders = await posService.listTodayOrders();
+      const orders = await posService.listTodayOrders(req.user!);
       return ResponseWrapper.success(res, orders.map(mapOrder));
     } catch (error) {
       next(error);
@@ -158,7 +180,7 @@ export function createPosRouter(posService: PosService, authService: AuthService
 
   router.get('/orders/:orderId', auth, async (req, res, next) => {
     try {
-      const order = await posService.getOrder(param(req.params.orderId));
+      const order = await posService.getOrder(param(req.params.orderId), req.user!);
       return ResponseWrapper.success(res, mapOrder(order));
     } catch (error) {
       next(error);
@@ -186,7 +208,11 @@ export function createPosRouter(posService: PosService, authService: AuthService
     try {
       const parsed = closeShiftSchema.safeParse(req.body);
       if (!parsed.success) throw new ValidationException('Data tutup shift tidak valid');
-      const shift = await posService.closeShift(param(req.params.shiftId), parsed.data.closingCash);
+      const shift = await posService.closeShift(
+        param(req.params.shiftId),
+        parsed.data.closingCash,
+        req.user!,
+      );
       return ResponseWrapper.success(res, {
         id: shift.id,
         status: shift.status,

@@ -9,7 +9,7 @@ declare module 'express-serve-static-core' {
 }
 
 export function createAuthMiddleware(authService: AuthService) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
       next(new UnauthorizedException('Token diperlukan'));
@@ -18,7 +18,7 @@ export function createAuthMiddleware(authService: AuthService) {
 
     const token = header.slice('Bearer '.length);
     try {
-      req.user = authService.verifyToken(token);
+      req.user = await authService.authenticateToken(token);
       next();
     } catch (error) {
       next(error);

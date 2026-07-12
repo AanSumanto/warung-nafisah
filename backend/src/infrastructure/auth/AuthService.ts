@@ -53,7 +53,7 @@ export class AuthService {
         role: authUser.role,
       } satisfies JwtPayload,
       this.jwtSecret,
-      { expiresIn: '12h' },
+      { expiresIn: '12h', algorithm: 'HS256' },
     );
 
     return { token, user: authUser };
@@ -61,9 +61,24 @@ export class AuthService {
 
   verifyToken(token: string): JwtPayload {
     try {
-      return jwt.verify(token, this.jwtSecret) as JwtPayload;
+      return jwt.verify(token, this.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
     } catch {
       throw new UnauthorizedException('Token tidak valid');
     }
+  }
+
+  async authenticateToken(token: string): Promise<JwtPayload> {
+    const payload = this.verifyToken(token);
+    const user = await getUserModel().findOne({ _id: payload.sub, isActive: true }).lean();
+    if (!user) {
+      throw new UnauthorizedException('Token tidak valid');
+    }
+
+    return {
+      sub: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
   }
 }

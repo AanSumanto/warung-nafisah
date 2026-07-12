@@ -1,15 +1,13 @@
 'use client';
 
-import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { z } from 'zod';
-import { DEFAULT_CREDENTIALS } from '@/features/auth';
 import { AppButton, AppCard, AppForm } from '@/shared/components/ui';
 import { useSnackbar } from '@/shared/hooks';
 import { getClientEnv } from '@/shared/lib/env';
+import { getSafeRedirectPath } from '@/shared/lib/safe-redirect';
 import { useAuth } from '@/shared/providers';
 
 const loginSchema = z.object({
@@ -28,16 +26,14 @@ function LoginForm() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const redirect = searchParams.get('redirect') ?? '/pos';
-      router.replace(redirect);
+      router.replace(getSafeRedirectPath(searchParams.get('redirect')));
     }
   }, [isAuthenticated, isLoading, router, searchParams]);
 
   const handleSubmit = async (values: LoginFormValues) => {
     try {
       await login(values);
-      const redirect = searchParams.get('redirect') ?? '/pos';
-      router.replace(redirect);
+      router.replace(getSafeRedirectPath(searchParams.get('redirect')));
     } catch {
       enqueueSnackbar('Email atau password salah', { variant: 'error' });
     }
@@ -89,17 +85,6 @@ function LoginForm() {
           </>
         )}
       </AppForm>
-
-      <Box sx={{ mt: 1 }}>
-        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-          Akun demo:
-        </Typography>
-        {DEFAULT_CREDENTIALS.map((cred) => (
-          <Typography key={cred.email} variant="caption" color="text.secondary" display="block">
-            {cred.label}: {cred.email} / {cred.password}
-          </Typography>
-        ))}
-      </Box>
     </AppCard>
   );
 }

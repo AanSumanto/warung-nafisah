@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { getEnv } from '../../config/env.js';
 import { getMenuModel } from '../pos/documents/MenuDocument.js';
 import { getUserModel } from './documents/UserDocument.js';
 import type { BundleComponent } from '../../domain/pos/PosTypes.js';
@@ -163,6 +164,10 @@ export async function seedPosData(): Promise<void> {
 }
 
 async function seedUsers(): Promise<void> {
+  if (getEnv().NODE_ENV === 'production') {
+    return;
+  }
+
   const model = getUserModel();
   const count = await model.countDocuments();
   if (count > 0) return;
