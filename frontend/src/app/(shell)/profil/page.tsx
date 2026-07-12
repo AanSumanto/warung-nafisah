@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { ChangePasswordForm } from '@/features/auth';
 import { useAuth, usePermission } from '@/shared/providers';
 import { isFavoriteMenu, resolveFavoriteMenus, toggleFavoriteKodeMenu, useMenus } from '@/features/pos';
 
@@ -50,6 +51,8 @@ export default function ProfilPage() {
           />
         </Box>
       ) : null}
+
+      <ChangePasswordForm />
 
       {hasRole('owner') ? (
         <>

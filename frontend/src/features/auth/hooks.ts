@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { loginApi, persistSession } from './api';
-import type { LoginRequest } from './types';
+import { changePasswordApi, loginApi, persistSession } from './api';
+import type { ChangePasswordRequest, LoginRequest } from './types';
 
 export function useLogin() {
   return useMutation({
@@ -11,5 +11,11 @@ export function useLogin() {
       persistSession(result.token, result.user);
       return result;
     },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: ChangePasswordRequest) => changePasswordApi(body),
   });
 }

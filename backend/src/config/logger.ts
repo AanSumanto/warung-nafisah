@@ -10,6 +10,8 @@ export const logger = pino({
       'password',
       'passwordHash',
       'body.password',
+      'body.currentPassword',
+      'body.newPassword',
     ],
     censor: '[REDACTED]',
   },

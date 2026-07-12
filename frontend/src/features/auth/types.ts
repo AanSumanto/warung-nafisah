@@ -16,3 +16,12 @@ export interface LoginResponse {
   readonly token: string;
   readonly user: AuthUser;
 }
+
+export interface ChangePasswordRequest {
+  readonly currentPassword: string;
+  readonly newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  readonly changed: boolean;
+}

@@ -12,6 +12,11 @@ const loginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(8).max(128),
+});
+
 const createOrderSchema = z.object({
   diningType: z.enum(['dine_in', 'take_away']),
 });
@@ -104,6 +109,21 @@ export function createPosRouter(posService: PosService, authService: AuthService
       if (!parsed.success) throw new ValidationException('Data login tidak valid');
       const result = await authService.login(parsed.data.email, parsed.data.password);
       return ResponseWrapper.success(res, result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/auth/change-password', auth, async (req, res, next) => {
+    try {
+      const parsed = changePasswordSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationException('Data password tidak valid');
+      await authService.changePassword(
+        req.user!.sub,
+        parsed.data.currentPassword,
+        parsed.data.newPassword,
+      );
+      return ResponseWrapper.success(res, { changed: true });
     } catch (error) {
       next(error);
     }

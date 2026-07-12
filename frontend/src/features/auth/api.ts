@@ -1,10 +1,18 @@
 import { apiClient } from '@/shared/lib/api';
 import type { ApiSuccessResponse } from '@/types/api';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from './constants';
-import type { AuthUser, LoginRequest, LoginResponse } from './types';
+import type { AuthUser, ChangePasswordRequest, ChangePasswordResponse, LoginRequest, LoginResponse } from './types';
 
 export async function loginApi(credentials: LoginRequest): Promise<LoginResponse> {
   const response = await apiClient.post<ApiSuccessResponse<LoginResponse>>('/auth/login', credentials);
+  return response.data.data;
+}
+
+export async function changePasswordApi(body: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+  const response = await apiClient.post<ApiSuccessResponse<ChangePasswordResponse>>(
+    '/auth/change-password',
+    body,
+  );
   return response.data.data;
 }
 

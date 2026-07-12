@@ -153,4 +153,35 @@ describe('Operational POS MVP Integration', () => {
       .set('Authorization', `Bearer ${kasirToken}`);
     expect(res.status).toBe(401);
   });
+
+  it('changes password for authenticated kasir', async () => {
+    const changeRes = await request(app)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${kasirToken}`)
+      .send({ currentPassword: 'warung123', newPassword: 'NewSecure99!' });
+    expect(changeRes.status).toBe(200);
+    expect(changeRes.body.data.changed).toBe(true);
+
+    const oldLogin = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'kasir@warungnafisah.local', password: 'warung123' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'kasir@warungnafisah.local', password: 'NewSecure99!' });
+    expect(newLogin.status).toBe(200);
+
+    await request(app)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${newLogin.body.data.token}`)
+      .send({ currentPassword: 'NewSecure99!', newPassword: 'warung123' });
+  });
+
+  it('rejects change password without auth', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/change-password')
+      .send({ currentPassword: 'warung123', newPassword: 'NewSecure99!' });
+    expect(res.status).toBe(401);
+  });
 });

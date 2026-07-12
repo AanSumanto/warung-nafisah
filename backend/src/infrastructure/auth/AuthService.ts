@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { BaseException } from '../../core/exceptions/BaseException.js';
+import { BaseException, ValidationException } from '../../core/exceptions/BaseException.js';
 import type { UserRole } from '../../domain/pos/PosTypes.js';
 import { getUserModel } from './documents/UserDocument.js';
 
@@ -80,5 +80,29 @@ export class AuthService {
       email: user.email,
       role: user.role,
     };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await getUserModel().findOne({ _id: userId, isActive: true });
+    if (!user) {
+      throw new UnauthorizedException('Password saat ini salah');
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Password saat ini salah');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new ValidationException('Password baru harus berbeda dari password saat ini');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.updatedAt = new Date();
+    await user.save();
   }
 }
