@@ -52,6 +52,10 @@ export function createApp(): express.Application {
   });
 
   app.use('/api/v1', v1Router);
+  // Vercel experimentalServices strips `/api` routePrefix before forwarding.
+  if (process.env.VERCEL) {
+    app.use('/v1', v1Router);
+  }
 
   app.use((_req, _res, next) => {
     next(new NotFoundException('Endpoint tidak ditemukan'));
