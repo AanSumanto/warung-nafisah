@@ -1,22 +1,36 @@
 import type { PrinterAdapter, PrinterReadiness, PrinterStatus } from '../types/printer';
 import { RawBtNotInstalledError } from '../types/printer';
 import type { PrinterProfile } from '../profiles/printerProfile';
-import { bytesToBase64, dispatchRawBtPrint, isAndroidDevice } from '../rawbt/rawbtBridge';
-import { isActivityNotFoundError, rawbtLog } from '../rawbt/rawbtLogger';
+import type { Receipt } from '../types/receipt';
+import { isActivityNotFoundError, rawbtLog, summarizeReceiptForLog, RAWBT_MIME_TYPE } from '../rawbt/rawbtLogger';
+import {
+  dispatchRawBtPrint,
+  isAndroidDevice,
+  RAWBT_RENDERER,
+} from '../rawbt/rawbtBridge';
+
+export interface RawBtPrintContext {
+  readonly receipt?: Receipt;
+}
 
 /**
  * RawBT print bridge for Blueprint BP-ECO58 (Bluetooth Classic via SPP).
- * Sends ESC/POS bytes via Android intent — no install pre-check.
+ * Sends ESC/POS bytes only — never HTML, JSON, or React output.
  */
 export class RawBtPrinterAdapter implements PrinterAdapter {
   readonly type = 'rawbt' as const;
 
   private status: PrinterStatus = 'disconnected';
+  private lastReceiptContext: RawBtPrintContext = {};
 
   constructor(private readonly profile: PrinterProfile) {}
 
   get profileId(): string {
     return `${this.profile.brand}-${this.profile.model}`.toLowerCase();
+  }
+
+  setPrintContext(context: RawBtPrintContext): void {
+    this.lastReceiptContext = context;
   }
 
   isConnected(): boolean {
@@ -27,7 +41,6 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
     return this.status;
   }
 
-  /** Android device can use RawBT — install is verified only on dispatch error. */
   async isAvailable(): Promise<boolean> {
     return isAndroidDevice();
   }
@@ -53,7 +66,7 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
     }
 
     this.status = 'ready';
-    rawbtLog.info('adapter:connect', { status: 'ready' });
+    rawbtLog.info('adapter:connect', { status: 'ready', profile: this.profileId });
   }
 
   async disconnect(): Promise<void> {
@@ -63,6 +76,9 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
   async preview(data: Uint8Array): Promise<void> {
     if (data.length === 0) {
       throw new Error('Data ESC/POS kosong');
+    }
+    if (data[0] !== 0x1b || data[1] !== 0x40) {
+      throw new Error('Data bukan ESC/POS valid');
     }
   }
 
@@ -81,22 +97,34 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
 
     this.status = 'printing';
 
+    const receipt = this.lastReceiptContext.receipt;
+    const receiptSummary = receipt ? summarizeReceiptForLog(receipt) : undefined;
+
     try {
-      const base64 = bytesToBase64(data);
       rawbtLog.info('adapter:send', {
         action,
-        bytes: data.length,
+        renderer: RAWBT_RENDERER,
+        mimeType: RAWBT_MIME_TYPE,
         profile: this.profileId,
-        payloadBase64Length: base64.length,
+        payloadLength: data.length,
+        orderNumber: receipt?.orderNumber,
+        receiptSummary,
       });
 
-      dispatchRawBtPrint(base64);
+      dispatchRawBtPrint(data, {
+        renderer: RAWBT_RENDERER,
+        mimeType: RAWBT_MIME_TYPE,
+        orderNumber: receipt?.orderNumber,
+        receiptSummary,
+      });
+
       this.status = 'ready';
     } catch (error) {
       this.status = 'error';
       rawbtLog.error('adapter:error', {
         action,
         error: error instanceof Error ? error.message : String(error),
+        orderNumber: receipt?.orderNumber,
       });
 
       if (error instanceof RawBtNotInstalledError || isActivityNotFoundError(error)) {

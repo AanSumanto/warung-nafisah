@@ -24,13 +24,21 @@ export { RawBtPrinterAdapter } from './adapters/RawBtPrinterAdapter';
 export {
   RAWBT_PACKAGE,
   RAWBT_PLAY_STORE_URL,
+  RAWBT_MIME_TYPE,
+  RAWBT_RENDERER,
   bytesToBase64,
   buildRawBtIntentUrl,
   buildRawBtSchemeUrl,
   dispatchRawBtPrint,
   isAndroidDevice,
 } from './rawbt/rawbtBridge';
-export { rawbtLog, isActivityNotFoundError } from './rawbt/rawbtLogger';
+export {
+  rawbtLog,
+  isActivityNotFoundError,
+  bytesPreviewHex,
+  base64Preview,
+  summarizeReceiptForLog,
+} from './rawbt/rawbtLogger';
 export { PrintQueue } from './services/PrintQueue';
 export {
   PrintService,

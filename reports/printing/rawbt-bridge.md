@@ -37,7 +37,7 @@ POS pages never import RawBT APIs. All bridge logic lives in `frontend/src/featu
 4. `RawBtPrinterAdapter` meng-encode bytes ke base64.
 5. Intent URL dibuka:
    ```
-   intent:rawbt:base64,<payload>#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end
+   intent:base64,<payload>#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;
    ```
 6. RawBT menerima data ESC/POS dan mengirim ke printer via Bluetooth Classic.
 7. Snackbar menampilkan status (bukan `alert()`).
@@ -49,7 +49,7 @@ POS pages never import RawBT APIs. All bridge logic lives in `frontend/src/featu
 | 1 | `ReceiptBuilder.build(order)` | `Receipt` object |
 | 2 | `EscPosRenderer.render(receipt)` | `Uint8Array` (INIT, align, bold, feed, cut) |
 | 3 | `bytesToBase64(bytes)` | Base64 string |
-| 4 | `dispatchRawBtPrint(base64)` | Android intent → RawBT |
+| 4 | `dispatchRawBtPrint(bytes)` | `intent:base64,<data>#Intent;...` → RawBT |
 
 Receipt Builder dan ESC/POS Renderer **tidak berubah** dari Sprint 4.5.2.
 

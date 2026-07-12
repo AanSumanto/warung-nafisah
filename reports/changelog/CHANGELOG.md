@@ -13,7 +13,20 @@ All notable changes to the Warung Nafisah ERP project documentation.
 
 ---
 
-## [0.11.4-hotfix] — 2026-07-12 — Login Rate Limit CI Fix
+## [0.11.4-hotfix2] — 2026-07-12 — RawBT WRC Error Fix
+
+### Fixed
+
+- RawBT intent URI: `intent:base64,<data>` (was incorrect `intent:rawbt:base64,<data>`)
+- Base64 URL-encoding for intent special characters
+- ESC/POS text encoding: Latin-1 single-byte (not UTF-8)
+- Enhanced `[RawBT]` dispatch logging
+
+### Docs
+
+- `reports/printing/wrc-error-rca.md`
+
+---
 
 ### Fixed
 

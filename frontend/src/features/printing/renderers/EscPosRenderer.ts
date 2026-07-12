@@ -32,9 +32,21 @@ function concatChunks(chunks: Uint8Array[]): Uint8Array {
   return result;
 }
 
+function encodeEscPosText(text: string): Uint8Array {
+  const bytes = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    bytes[i] = code <= 0xff ? code : 0x3f;
+  }
+  return bytes;
+}
+
 function textLine(text: string): Uint8Array {
-  const encoder = new TextEncoder();
-  return encoder.encode(`${text}\n`);
+  const line = encodeEscPosText(text);
+  const withLf = new Uint8Array(line.length + 1);
+  withLf.set(line);
+  withLf[line.length] = LF;
+  return withLf;
 }
 
 function pushLine(chunks: Uint8Array[], line: ThermalReceiptLine, profile: PrinterProfile): void {

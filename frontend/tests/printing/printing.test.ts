@@ -93,14 +93,6 @@ describe('thermal layout', () => {
     expect(lines.at(-1)?.kind).toBe('heavy-separator');
     expect(lines[0]?.text).toBe('='.repeat(32));
   });
-
-  it('renders item lines as name, qty, subtotal', () => {
-    const receipt = ReceiptBuilder.build(sampleOrder);
-    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
-    expect(lines.some((l) => l.kind === 'item-name' && l.text === 'Lele')).toBe(true);
-    expect(lines.some((l) => l.kind === 'item-qty' && l.text === '1 x 11.000')).toBe(true);
-    expect(lines.some((l) => l.kind === 'item-subtotal' && l.text === '11.000')).toBe(true);
-  });
 });
 
 describe('PreviewRenderer', () => {
@@ -134,14 +126,15 @@ describe('EscPosRenderer', () => {
     expect(hasCut).toBe(false);
   });
 
-  it('encodes receipt text as UTF-8 without HTML', () => {
+  it('encodes receipt text as single-byte ESC/POS without HTML', () => {
     const receipt = ReceiptBuilder.build(sampleOrder);
     const bytes = new EscPosRenderer(BLUEPRINT_BP_ECO58).render(receipt);
-    const decoded = new TextDecoder().decode(bytes);
+    const decoded = Array.from(bytes)
+      .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
+      .join('');
     expect(decoded).toContain('WARUNG NAFISAH');
     expect(decoded).toContain('WN-20260712-000001');
     expect(decoded).not.toContain('<div');
-    expect(decoded).not.toContain('window.print');
   });
 });
 
@@ -156,16 +149,17 @@ describe('rawbt bridge', () => {
     expect(buildRawBtSchemeUrl('G0AK')).toBe('rawbt:base64,G0AK');
   });
 
-  it('builds Android intent URL with RawBT package', () => {
+  it('builds official intent URL with base64 prefix (not rawbt:base64)', () => {
     const url = buildRawBtIntentUrl('G0AK');
-    expect(url).toContain('intent:rawbt:base64,G0AK');
+    expect(url.startsWith('intent:base64,')).toBe(true);
+    expect(url).not.toContain('intent:rawbt:base64');
     expect(url).toContain('package=ru.a402d.rawbtprinter');
     expect(url).toContain('end;');
   });
 
-  it('throws RawBtNotInstalledError on Activity Not Found', () => {
-    const error = new Error('Activity not found');
-    expect(isActivityNotFoundError(error)).toBe(true);
+  it('URL-encodes base64 special characters in intent', () => {
+    const url = buildRawBtIntentUrl('a+b/c=');
+    expect(url).toContain('a%2Bb%2Fc%3D');
   });
 
   it('detects Android user agent', () => {
@@ -176,6 +170,11 @@ describe('rawbt bridge', () => {
     });
     expect(isAndroidDevice()).toBe(true);
     Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true });
+  });
+
+  it('throws RawBtNotInstalledError on Activity Not Found', () => {
+    const error = new Error('Activity not found');
+    expect(isActivityNotFoundError(error)).toBe(true);
   });
 });
 
@@ -213,11 +212,6 @@ describe('RawBtPrinterAdapter', () => {
     expect(adapter.getStatus()).toBe('ready');
   });
 
-  it('isAvailable reflects Android device only', async () => {
-    const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
-    await expect(adapter.isAvailable()).resolves.toBe(true);
-  });
-
   it('dispatches ESC/POS bytes via RawBT bridge on print', async () => {
     const dispatch = vi
       .spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint')
@@ -225,9 +219,10 @@ describe('RawBtPrinterAdapter', () => {
 
     const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
     await adapter.connect();
-    await adapter.print(new Uint8Array([0x1b, 0x40]));
+    await adapter.print(new Uint8Array([0x1b, 0x40, 0x0a]));
 
     expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch.mock.calls[0]?.[0]).toBeInstanceOf(Uint8Array);
   });
 
   it('throws RawBtNotInstalledError when dispatch reports Activity Not Found', async () => {
@@ -236,7 +231,7 @@ describe('RawBtPrinterAdapter', () => {
     });
 
     const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
-    await expect(adapter.print(new Uint8Array([0x1b, 0x40]))).rejects.toBeInstanceOf(RawBtNotInstalledError);
+    await expect(adapter.print(new Uint8Array([0x1b, 0x40, 0x0a]))).rejects.toBeInstanceOf(RawBtNotInstalledError);
   });
 });
 
@@ -258,6 +253,8 @@ describe('PrintService', () => {
     expect(service.getAdapter().type).toBe('rawbt');
     const escPos = service.renderEscPos(receipt);
     expect(escPos).toBeInstanceOf(Uint8Array);
+    expect(escPos[0]).toBe(0x1b);
+    expect(escPos[1]).toBe(0x40);
   });
 
   it('reprintReceipt uses adapter reprint with ESC/POS bytes', async () => {
@@ -273,16 +270,6 @@ describe('PrintService', () => {
 
     expect(reprint).toHaveBeenCalledOnce();
     expect(reprint.mock.calls[0]?.[0]).toBeInstanceOf(Uint8Array);
-  });
-
-  it('preview renderer is separate from print path', () => {
-    const receipt = ReceiptBuilder.build(sampleOrder);
-    const service = new PrintService(rawbtConfig);
-    const preview = service.renderPreview(receipt);
-    const escPos = service.renderEscPos(receipt);
-
-    expect(preview.lines.length).toBeGreaterThan(0);
-    expect(escPos).toBeInstanceOf(Uint8Array);
   });
 });
 

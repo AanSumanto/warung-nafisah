@@ -5,6 +5,7 @@ import { getPrinterProfile } from '../profiles/printerProfile';
 import { EscPosRenderer } from '../renderers/EscPosRenderer';
 import { PreviewRenderer } from '../renderers/PreviewRenderer';
 import { createPrinterAdapter } from '../adapters/PrinterAdapters';
+import { RawBtPrinterAdapter } from '../adapters/RawBtPrinterAdapter';
 import { getPrintConfig } from '../config/printConfig';
 import { PrintQueue } from './PrintQueue';
 
@@ -65,6 +66,23 @@ export class PrintService {
     return this.escPosRenderer.render(receipt);
   }
 
+  private attachReceiptContext(receipt: Receipt): void {
+    if (this.adapter instanceof RawBtPrinterAdapter) {
+      this.adapter.setPrintContext({ receipt });
+    }
+  }
+
+  private async sendEscPosToAdapter(receipt: Receipt, action: 'print' | 'reprint'): Promise<void> {
+    await this.ensureConnected();
+    const escPosData = this.renderEscPos(receipt);
+    this.attachReceiptContext(receipt);
+    if (action === 'print') {
+      await this.adapter.print(escPosData);
+    } else {
+      await this.adapter.reprint(escPosData);
+    }
+  }
+
   /** Validate ESC/POS payload without sending to printer. */
   async previewReceipt(receipt: Receipt): Promise<void> {
     const escPosData = this.renderEscPos(receipt);
@@ -80,9 +98,7 @@ export class PrintService {
     this.queue.markStatus(job.id, 'processing');
 
     try {
-      await this.ensureConnected();
-      const escPosData = this.renderEscPos(receipt);
-      await this.adapter.print(escPosData);
+      await this.sendEscPosToAdapter(receipt, 'print');
       this.queue.markStatus(job.id, 'completed');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Print gagal';
@@ -97,9 +113,7 @@ export class PrintService {
   }
 
   async reprintReceipt(receipt: Receipt): Promise<void> {
-    await this.ensureConnected();
-    const escPosData = this.renderEscPos(receipt);
-    await this.adapter.reprint(escPosData);
+    await this.sendEscPosToAdapter(receipt, 'reprint');
   }
 
   async reprint(receipt: Receipt): Promise<void> {

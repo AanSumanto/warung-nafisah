@@ -1,30 +1,38 @@
 const LOG_PREFIX = '[RawBT]';
 
+export const RAWBT_MIME_TYPE = 'application/octet-stream';
+
 export interface RawBtLogPayload {
-  readonly intentUrl?: string;
-  readonly schemeUrl?: string;
+  readonly intentUri?: string;
+  readonly schemeUri?: string;
+  readonly mimeType?: string;
+  readonly renderer?: string;
+  readonly payloadLength?: number;
   readonly payloadBase64Length?: number;
-  readonly payloadBytesEstimate?: number;
+  readonly payloadPreview?: string;
+  readonly payloadPreviewHex?: string;
+  readonly orderNumber?: string;
   readonly method?: string;
   readonly status?: string;
   readonly error?: string;
+  readonly receiptSummary?: Record<string, unknown>;
   readonly [key: string]: unknown;
 }
 
-function summarizeUrl(url: string, max = 120): string {
-  if (url.length <= max) return url;
-  return `${url.slice(0, max)}… (${url.length} chars)`;
+function summarizeUri(uri: string, max = 160): string {
+  if (uri.length <= max) return uri;
+  return `${uri.slice(0, max)}… (${uri.length} chars)`;
 }
 
 export const rawbtLog = {
   info(event: string, payload: RawBtLogPayload = {}): void {
     if (typeof console === 'undefined') return;
     const sanitized = { ...payload };
-    if (typeof sanitized.intentUrl === 'string') {
-      sanitized.intentUrl = summarizeUrl(sanitized.intentUrl);
+    if (typeof sanitized.intentUri === 'string') {
+      sanitized.intentUri = summarizeUri(sanitized.intentUri);
     }
-    if (typeof sanitized.schemeUrl === 'string') {
-      sanitized.schemeUrl = summarizeUrl(sanitized.schemeUrl);
+    if (typeof sanitized.schemeUri === 'string') {
+      sanitized.schemeUri = summarizeUri(sanitized.schemeUri);
     }
     console.info(LOG_PREFIX, event, sanitized);
   },
@@ -32,11 +40,11 @@ export const rawbtLog = {
   error(event: string, payload: RawBtLogPayload = {}): void {
     if (typeof console === 'undefined') return;
     const sanitized = { ...payload };
-    if (typeof sanitized.intentUrl === 'string') {
-      sanitized.intentUrl = summarizeUrl(sanitized.intentUrl);
+    if (typeof sanitized.intentUri === 'string') {
+      sanitized.intentUri = summarizeUri(sanitized.intentUri);
     }
-    if (typeof sanitized.schemeUrl === 'string') {
-      sanitized.schemeUrl = summarizeUrl(sanitized.schemeUrl);
+    if (typeof sanitized.schemeUri === 'string') {
+      sanitized.schemeUri = summarizeUri(sanitized.schemeUri);
     }
     console.error(LOG_PREFIX, event, sanitized);
   },
@@ -54,4 +62,29 @@ export function isActivityNotFoundError(error: unknown): boolean {
     message.includes('unable to resolve') ||
     message.includes('unknown url scheme')
   );
+}
+
+export function bytesPreviewHex(bytes: Uint8Array, max = 16): string {
+  const slice = bytes.subarray(0, max);
+  return Array.from(slice)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join(' ');
+}
+
+export function base64Preview(base64: string, max = 100): string {
+  return base64.length <= max ? base64 : `${base64.slice(0, max)}…`;
+}
+
+export function summarizeReceiptForLog(receipt: {
+  orderNumber: string;
+  grandTotal: number;
+  items: readonly unknown[];
+  paperWidth: string;
+}): Record<string, unknown> {
+  return {
+    orderNumber: receipt.orderNumber,
+    grandTotal: receipt.grandTotal,
+    itemCount: receipt.items.length,
+    paperWidth: receipt.paperWidth,
+  };
 }
