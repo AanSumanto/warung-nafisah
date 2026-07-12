@@ -11,10 +11,7 @@ import { errorHandlerMiddleware } from './presentation/middleware/error-handler.
 import { v1Router } from './presentation/routes/v1/index.js';
 import { NotFoundException } from './core/exceptions/BaseException.js';
 
-const pinoHttp = pinoHttpModule as unknown as (options: {
-  logger: typeof logger;
-  customProps?: (req: express.Request) => Record<string, unknown>;
-}) => express.RequestHandler;
+const pinoHttp = pinoHttpModule as unknown as (options: Record<string, unknown>) => express.RequestHandler;
 
 export function createApp(): express.Application {
   const app = express();
@@ -37,7 +34,7 @@ export function createApp(): express.Application {
     pinoHttp({
       logger,
       serializers: {
-        req(req) {
+        req(req: express.Request) {
           const headers = { ...req.headers };
           if (headers.authorization) {
             headers.authorization = '[REDACTED]';

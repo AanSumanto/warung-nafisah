@@ -3,4 +3,6 @@ dist/
 .env
 .env.local
 *.log
+logs/*.log
+.pm2/
 coverage/

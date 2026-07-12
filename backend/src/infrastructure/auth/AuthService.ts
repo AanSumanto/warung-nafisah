@@ -101,8 +101,10 @@ export class AuthService {
       throw new ValidationException('Password baru harus berbeda dari password saat ini');
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    user.updatedAt = new Date();
-    await user.save();
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await getUserModel().updateOne(
+      { _id: userId, isActive: true },
+      { $set: { passwordHash, updatedAt: new Date() } },
+    );
   }
 }

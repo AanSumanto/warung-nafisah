@@ -21,6 +21,9 @@ async function bootstrap(): Promise<void> {
       { host: env.HOST, port: env.PORT, env: env.NODE_ENV },
       'Warung Nafisah API server started',
     );
+    if (typeof process.send === 'function') {
+      process.send('ready');
+    }
   });
 }
 
