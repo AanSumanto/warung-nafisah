@@ -2,9 +2,9 @@ import type { Receipt } from './receipt';
 
 export type PrinterStatus = 'disconnected' | 'connecting' | 'ready' | 'printing' | 'error';
 
-export type PrinterType = 'rawbt' | 'blueprint-eco58' | 'browser';
+export type PrinterType = 'rawbt' | 'blueprint-eco58';
 
-export type PrinterBridge = 'rawbt' | 'web-bluetooth' | 'browser';
+export type PrinterBridge = 'rawbt' | 'web-bluetooth';
 
 export type PrinterConnectionMethod = 'bluetooth' | 'wifi' | 'usb' | 'lan';
 
@@ -13,6 +13,7 @@ export type PrinterReadiness = 'ready' | 'not_connected' | 'rawbt_not_installed'
 
 export interface PrinterAdapter {
   readonly type: PrinterType;
+  readonly profileId: string;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   print(data: Uint8Array): Promise<void>;
@@ -39,6 +40,7 @@ export interface PrintJob {
 
 export interface PrintConfig {
   readonly printerType: PrinterType;
+  readonly printerProfileId: string;
   readonly printerName: string;
   readonly connectionMethod: PrinterConnectionMethod;
   readonly bridge: PrinterBridge;

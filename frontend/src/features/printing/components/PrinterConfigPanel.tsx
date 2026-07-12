@@ -12,10 +12,11 @@ import Box from '@mui/material/Box';
 import { useCallback, useState } from 'react';
 import {
   getPrintConfig,
-  resetPrintService,
   savePrintConfig,
   setRawBtPrinterConnected,
 } from '../config/printConfig';
+import { resetPrintService } from '../services/PrintService';
+import { BLUEPRINT_BP_ECO58 } from '../profiles/printerProfile';
 import type { PrintConfig, PrinterType } from '../types/printer';
 import { PrinterStatusChip } from './PrinterStatusChip';
 
@@ -31,7 +32,7 @@ export function PrinterConfigPanel() {
   }, []);
 
   const handlePrinterTypeChange = (printerType: PrinterType) => {
-    const bridge = printerType === 'rawbt' ? 'rawbt' : printerType === 'blueprint-eco58' ? 'web-bluetooth' : 'browser';
+    const bridge = printerType === 'rawbt' ? 'rawbt' : 'web-bluetooth';
     applyConfig({ printerType, bridge });
   };
 
@@ -41,6 +42,8 @@ export function PrinterConfigPanel() {
     setConfig(next);
     setStatusKey((k) => k + 1);
   };
+
+  const profile = BLUEPRINT_BP_ECO58;
 
   return (
     <Box sx={{ p: 2, mb: 2, borderRadius: 3, bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}>
@@ -61,6 +64,15 @@ export function PrinterConfigPanel() {
       />
 
       <TextField
+        label="Profil Printer"
+        value={`${profile.brand} ${profile.model}`}
+        fullWidth
+        margin="normal"
+        InputProps={{ readOnly: true }}
+        helperText={`${profile.paperWidth}mm · ${profile.protocol} · Cut: ${profile.supportsCut ? 'Ya' : 'Tidak'}`}
+      />
+
+      <TextField
         label="Metode"
         value="Bluetooth"
         fullWidth
@@ -71,22 +83,21 @@ export function PrinterConfigPanel() {
 
       <TextField
         label="Bridge"
-        value={config.bridge === 'rawbt' ? 'RawBT' : config.bridge === 'web-bluetooth' ? 'Web Bluetooth' : 'Browser'}
+        value={config.bridge === 'rawbt' ? 'RawBT' : 'Web Bluetooth'}
         fullWidth
         margin="normal"
         InputProps={{ readOnly: true }}
       />
 
       <FormControl fullWidth margin="normal">
-        <InputLabel id="printer-type-label">Tipe Printer</InputLabel>
+        <InputLabel id="printer-type-label">Adapter</InputLabel>
         <Select
           labelId="printer-type-label"
-          label="Tipe Printer"
+          label="Adapter"
           value={config.printerType}
           onChange={(e) => handlePrinterTypeChange(e.target.value as PrinterType)}
         >
           <MenuItem value="rawbt">RawBT — Blueprint BP-ECO58</MenuItem>
-          <MenuItem value="browser">Browser (fallback)</MenuItem>
           <MenuItem value="blueprint-eco58">Web Bluetooth (legacy)</MenuItem>
         </Select>
       </FormControl>
@@ -116,6 +127,10 @@ export function PrinterConfigPanel() {
           sx={{ mt: 1, display: 'flex' }}
         />
       ) : null}
+
+      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+        Cetak struk selalu menggunakan ESC/POS thermal — bukan cetak browser.
+      </Typography>
     </Box>
   );
 }

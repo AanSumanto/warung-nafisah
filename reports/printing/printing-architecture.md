@@ -46,25 +46,27 @@ Renderer  Renderer
 
 ## Bluetooth Flow
 
-1. `PrintService.print(receipt)`
-2. Auto-connect via `BlueprintEco58BluetoothAdapter` (Web Bluetooth)
-3. Chunked write to GATT characteristic
-4. Fallback: `BrowserPrintAdapter` + `HtmlReceiptRenderer`
+1. `printReceipt(receipt)` — Receipt Object only
+2. `EscPosRenderer.render(receipt)` → `Uint8Array`
+3. `RawBtPrinterAdapter` → base64 intent → RawBT → SPP printer
+
+**No browser print.** HTML preview is display-only via `PreviewRenderer`.
 
 ## Printer Adapter Diagram
 
 ```
-        PrintService
-             │
-    ┌────────┴────────┐
-    ↓                 ↓
-BlueprintEco58    BrowserPrint
-BluetoothAdapter   Adapter
-    │                 │
- Web Bluetooth    window.print()
+        PrintService.printReceipt()
+                    │
+         EscPosRenderer (thermal)
+                    │
+              RawBtPrinterAdapter
+                    │
+              RawBT Android app
+                    │
+            Blueprint BP-ECO58
 ```
 
-Interface: `connect()`, `disconnect()`, `print()`, `reprint()`, `getStatus()`
+Interface: `print()`, `reprint()`, `preview()`, `isAvailable()`
 
 ## Print Queue
 

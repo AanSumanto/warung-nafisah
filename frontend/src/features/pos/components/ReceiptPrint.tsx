@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ReceiptBuilder, getPrintService, getReceiptBusinessConfig } from '@/features/printing';
+import { ReceiptBuilder, printReceipt, getReceiptBusinessConfig } from '@/features/printing';
 import type { Order } from '../types';
 
 export type ReceiptPaperWidth = '58mm' | '80mm';
@@ -12,7 +12,7 @@ interface ReceiptPrintProps {
   readonly onAfterPrint?: () => void;
 }
 
-/** Triggers PrintService for programmatic print (browser or Bluetooth). */
+/** Triggers ESC/POS print via PrintService — never browser print. */
 export function ReceiptPrint({ order, autoPrint = true, onAfterPrint }: ReceiptPrintProps) {
   const printedRef = useRef(false);
 
@@ -21,8 +21,7 @@ export function ReceiptPrint({ order, autoPrint = true, onAfterPrint }: ReceiptP
     printedRef.current = true;
 
     const receipt = ReceiptBuilder.build(order, getReceiptBusinessConfig());
-    void getPrintService()
-      .print(receipt)
+    void printReceipt(receipt)
       .then(() => onAfterPrint?.())
       .catch(() => onAfterPrint?.());
   }, [autoPrint, onAfterPrint, order]);

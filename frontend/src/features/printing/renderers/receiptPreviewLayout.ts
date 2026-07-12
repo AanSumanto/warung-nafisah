@@ -1,31 +1,30 @@
 import type { Receipt } from '../types/receipt';
 import { formatReceiptDate, formatReceiptMoney } from '../receipt/formatMoney';
 
-export type ReceiptLineAlign = 'left' | 'center' | 'right';
-export type ReceiptLineWeight = 'normal' | 'bold';
+export type PreviewLineAlign = 'left' | 'center' | 'right';
+export type PreviewLineWeight = 'normal' | 'bold';
 
-export interface ReceiptLine {
-  readonly text: string;
-  readonly align?: ReceiptLineAlign;
-  readonly weight?: ReceiptLineWeight;
+export interface PreviewReceiptLine {
+  readonly text?: string;
+  readonly align?: PreviewLineAlign;
+  readonly weight?: PreviewLineWeight;
   readonly size?: 'sm' | 'md' | 'lg';
-  readonly kind?: 'separator' | 'text' | 'row' | 'field';
+  readonly kind?: 'separator' | 'text' | 'row' | 'field-block';
+  readonly label?: string;
+  readonly value?: string;
   readonly left?: string;
   readonly right?: string;
 }
 
-const SEPARATOR = '----------------------------------------';
+const LIGHT_SEPARATOR = '--------------------------------';
 
-function fieldLine(label: string, value: string): ReceiptLine {
-  return {
-    text: `${label} : ${value}`,
-    kind: 'field',
-    align: 'left',
-  };
+function fieldBlock(label: string, value: string): PreviewReceiptLine {
+  return { kind: 'field-block', label, value, align: 'left' };
 }
 
-export function buildReceiptLines(receipt: Receipt): ReceiptLine[] {
-  const lines: ReceiptLine[] = [];
+/** UI preview layout — modern responsive display, not used for printing. */
+export function buildReceiptPreviewLines(receipt: Receipt): PreviewReceiptLine[] {
+  const lines: PreviewReceiptLine[] = [];
 
   if (receipt.logo) {
     lines.push({ text: receipt.logo, align: 'center', kind: 'text' });
@@ -40,13 +39,13 @@ export function buildReceiptLines(receipt: Receipt): ReceiptLine[] {
     lines.push({ text: receipt.phone, align: 'center', size: 'sm' });
   }
 
-  lines.push({ text: SEPARATOR, kind: 'separator', align: 'center' });
-  lines.push(fieldLine('No', receipt.orderNumber));
-  lines.push(fieldLine('Tanggal', formatReceiptDate(receipt.transactionDate)));
-  lines.push(fieldLine('Kasir', receipt.cashierName));
-  lines.push(fieldLine('Pembayaran', receipt.paymentMethod));
-  lines.push(fieldLine('Pesanan', receipt.diningType));
-  lines.push({ text: SEPARATOR, kind: 'separator', align: 'center' });
+  lines.push({ text: LIGHT_SEPARATOR, kind: 'separator', align: 'center' });
+  lines.push(fieldBlock('No', receipt.orderNumber));
+  lines.push(fieldBlock('Tanggal', formatReceiptDate(receipt.transactionDate)));
+  lines.push(fieldBlock('Kasir', receipt.cashierName));
+  lines.push(fieldBlock('Pembayaran', receipt.paymentMethod));
+  lines.push(fieldBlock('Pesanan', receipt.diningType));
+  lines.push({ text: LIGHT_SEPARATOR, kind: 'separator', align: 'center' });
 
   for (const item of receipt.items) {
     lines.push({ text: item.namaMenu, align: 'left', weight: 'bold' });
@@ -61,7 +60,7 @@ export function buildReceiptLines(receipt: Receipt): ReceiptLine[] {
     }
   }
 
-  lines.push({ text: SEPARATOR, kind: 'separator', align: 'center' });
+  lines.push({ text: LIGHT_SEPARATOR, kind: 'separator', align: 'center' });
   lines.push({
     text: 'Subtotal',
     left: 'Subtotal',
@@ -96,7 +95,7 @@ export function buildReceiptLines(receipt: Receipt): ReceiptLine[] {
     weight: 'bold',
     size: 'lg',
   });
-  lines.push({ text: SEPARATOR, kind: 'separator', align: 'center' });
+  lines.push({ text: LIGHT_SEPARATOR, kind: 'separator', align: 'center' });
 
   for (const line of receipt.footerMessage.split('\n')) {
     lines.push({ text: line, align: 'center', size: 'sm' });

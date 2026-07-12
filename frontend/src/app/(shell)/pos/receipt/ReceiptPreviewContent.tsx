@@ -8,7 +8,7 @@ import {
   ReceiptBuilder,
   ReceiptPreviewPanel,
   RawBtNotInstalledDialog,
-  getPrintService,
+  printReceipt,
   getReceiptBusinessConfig,
   isRawBtNotInstalledError,
 } from '@/features/printing';
@@ -44,7 +44,7 @@ export function ReceiptPreviewContent() {
     setPrinting(true);
     enqueueSnackbar('Mengirim ke printer…', { variant: 'info', preventDuplicate: true });
     try {
-      await getPrintService().print(receipt);
+      await printReceipt(receipt);
       enqueueSnackbar('Struk dikirim ke printer', { variant: 'success' });
     } catch (error) {
       if (isRawBtNotInstalledError(error)) {

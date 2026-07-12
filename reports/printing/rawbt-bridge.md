@@ -79,9 +79,10 @@ Implementations:
 
 | Adapter | Use case |
 |---------|----------|
-| `RawBtPrinterAdapter` | Production Android + Blueprint BP-ECO58 |
-| `BrowserPrintAdapter` | Desktop fallback (`window.print`) |
-| `BlueprintEco58BluetoothAdapter` | Legacy Web Bluetooth (not used for SPP) |
+| `RawBtPrinterAdapter` | Production Android + Blueprint BP-ECO58 (ESC/POS only) |
+| `BlueprintEco58BluetoothAdapter` | Legacy Web Bluetooth (ESC/POS only) |
+
+**Note:** Browser print (`window.print()`) was removed in Sprint 4.5.2 Revision. See `thermal-printing-revision.md`.
 
 ## Error Handling
 

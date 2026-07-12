@@ -6,7 +6,8 @@ import {
   ReceiptBuilder,
   ReceiptPreviewPanel,
   RawBtNotInstalledDialog,
-  getPrintService,
+  printReceipt,
+  reprintReceipt,
   getReceiptBusinessConfig,
   isRawBtNotInstalledError,
   type Receipt,
@@ -45,11 +46,10 @@ export function ReceiptPreviewSheet({
     });
 
     try {
-      const service = getPrintService();
       if (isReprint) {
-        await service.reprint(receipt);
+        await reprintReceipt(receipt);
       } else {
-        await service.print(receipt);
+        await printReceipt(receipt);
       }
       enqueueSnackbar(isReprint ? 'Cetak ulang dikirim ke RawBT' : 'Struk dikirim ke printer', {
         variant: 'success',

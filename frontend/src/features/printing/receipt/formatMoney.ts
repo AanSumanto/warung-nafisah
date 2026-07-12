@@ -16,3 +16,12 @@ export function formatReceiptDate(iso: string): string {
   }).format(date);
   return `${datePart} Pukul ${timePart}`;
 }
+
+/** Date-only format for thermal ESC/POS receipts. */
+export function formatReceiptDateThermal(iso: string): string {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(iso));
+}

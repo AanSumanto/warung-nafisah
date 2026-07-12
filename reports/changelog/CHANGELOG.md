@@ -9,7 +9,27 @@ All notable changes to the Warung Nafisah ERP project documentation.
 ### Planned
 
 - ADR-001 multi-repo migration
-- Sprint 5+: Inventory (blocked until Sprint 4.5.3 approval)
+- Sprint 5+: Inventory (blocked until Sprint 4.5.2 revision approval)
+
+---
+
+## [0.11.4] — 2026-07-12 — Sprint 4.5.2 Revision Thermal Printing
+
+### Fixed
+
+- Removed `window.print()` path — printing no longer captures browser UI
+- All print output via ESC/POS → RawBT → Blueprint BP-ECO58
+
+### Added
+
+- `PreviewRenderer` / `EscPosRenderer` separation
+- `PrinterProfile` (Blueprint BP-ECO58)
+- `printReceipt()` / `reprintReceipt()` API
+- `reports/printing/thermal-printing-revision.md`
+
+### Removed
+
+- `BrowserPrintAdapter`, `HtmlReceiptRenderer`, browser print config
 
 ---
 

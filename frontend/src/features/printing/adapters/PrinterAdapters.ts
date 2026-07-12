@@ -1,4 +1,5 @@
 import type { PrintConfig, PrinterAdapter, PrinterReadiness, PrinterStatus } from '../types/printer';
+import type { PrinterProfile } from '../profiles/printerProfile';
 import { RawBtPrinterAdapter } from './RawBtPrinterAdapter';
 
 const CHUNK_SIZE = 512;
@@ -27,13 +28,15 @@ interface BluetoothNavigator {
   };
 }
 
-/** Generic ESC/POS Bluetooth adapter — Blueprint ECO-58 and compatible printers. */
+/** Legacy Web Bluetooth adapter — ESC/POS bytes only, no HTML. */
 export class BlueprintEco58BluetoothAdapter implements PrinterAdapter {
   readonly type = 'blueprint-eco58' as const;
 
   private status: PrinterStatus = 'disconnected';
   private device: BluetoothDeviceLike | null = null;
   private characteristic: BluetoothGattCharacteristicLike | null = null;
+
+  constructor(readonly profileId: string) {}
 
   isConnected(): boolean {
     return this.status === 'ready' || this.status === 'printing';
@@ -109,9 +112,9 @@ export class BlueprintEco58BluetoothAdapter implements PrinterAdapter {
     await this.write(data);
   }
 
-  async preview(_data: Uint8Array): Promise<void> {
-    if (!this.characteristic) {
-      throw new Error('Printer belum terhubung');
+  async preview(data: Uint8Array): Promise<void> {
+    if (data.length === 0) {
+      throw new Error('Data ESC/POS kosong');
     }
   }
 
@@ -148,84 +151,9 @@ export class BlueprintEco58BluetoothAdapter implements PrinterAdapter {
   }
 }
 
-/** Browser print fallback via hidden HTML renderer output. */
-export class BrowserPrintAdapter implements PrinterAdapter {
-  readonly type = 'browser' as const;
-
-  private status: PrinterStatus = 'ready';
-  private pendingHtml: { html: string; styles: string } | null = null;
-
-  isConnected(): boolean {
-    return true;
-  }
-
-  getStatus(): PrinterStatus {
-    return this.status;
-  }
-
-  async connect(): Promise<void> {
-    this.status = 'ready';
-  }
-
-  async disconnect(): Promise<void> {
-    this.status = 'disconnected';
-  }
-
-  setHtmlPayload(html: string, styles: string): void {
-    this.pendingHtml = { html, styles };
-  }
-
-  async print(_data: Uint8Array): Promise<void> {
-    if (!this.pendingHtml) {
-      throw new Error('HTML receipt belum disiapkan');
-    }
-    await this.triggerBrowserPrint(this.pendingHtml.html, this.pendingHtml.styles);
-  }
-
-  async reprint(data: Uint8Array): Promise<void> {
-    await this.print(data);
-  }
-
-  async preview(_data: Uint8Array): Promise<void> {
-    if (!this.pendingHtml) {
-      throw new Error('HTML receipt belum disiapkan');
-    }
-  }
-
-  async isAvailable(): Promise<boolean> {
-    return typeof window !== 'undefined';
-  }
-
-  async getReadiness(): Promise<PrinterReadiness> {
-    return (await this.isAvailable()) ? 'ready' : 'unavailable';
-  }
-
-  private triggerBrowserPrint(html: string, styles: string): Promise<void> {
-    return new Promise((resolve) => {
-      const styleEl = document.createElement('style');
-      styleEl.textContent = styles;
-      document.head.appendChild(styleEl);
-
-      const container = document.createElement('div');
-      container.innerHTML = html;
-      document.body.appendChild(container);
-
-      window.setTimeout(() => {
-        window.print();
-        container.remove();
-        styleEl.remove();
-        resolve();
-      }, 150);
-    });
-  }
-}
-
-export function createPrinterAdapter(config: PrintConfig): PrinterAdapter {
-  if (config.printerType === 'rawbt') {
-    return new RawBtPrinterAdapter();
-  }
+export function createPrinterAdapter(config: PrintConfig, profile: PrinterProfile): PrinterAdapter {
   if (config.printerType === 'blueprint-eco58') {
-    return new BlueprintEco58BluetoothAdapter();
+    return new BlueprintEco58BluetoothAdapter(profile.model);
   }
-  return new BrowserPrintAdapter();
+  return new RawBtPrinterAdapter(profile);
 }

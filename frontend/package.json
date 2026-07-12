@@ -1,6 +1,6 @@
 {
   "name": "@warung-nafisah/frontend",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "private": true,
   "description": "Warung Nafisah ERP — Frontend (Next.js 15)",
   "scripts": {

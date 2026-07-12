@@ -3,20 +3,82 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { Receipt } from '../types/receipt';
-import { buildReceiptLines } from '../renderers/receiptLayout';
+import { PreviewRenderer } from '../renderers/PreviewRenderer';
+import type { PreviewReceiptLine } from '../renderers/receiptPreviewLayout';
 
 interface ReceiptThermalViewProps {
   readonly receipt: Receipt;
-  readonly preview?: boolean;
+}
+
+function PreviewLine({ line }: { readonly line: PreviewReceiptLine }) {
+  if (line.kind === 'separator') {
+    return (
+      <Typography
+        align="center"
+        sx={{ fontSize: '0.65rem', my: 0.5, color: 'text.secondary', overflow: 'hidden' }}
+      >
+        {line.text}
+      </Typography>
+    );
+  }
+
+  if (line.kind === 'field-block' && line.label && line.value) {
+    return (
+      <Box sx={{ my: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
+          {line.label}
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {line.value}
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (line.kind === 'row' && line.left && line.right) {
+    const isBold = line.weight === 'bold' || line.size === 'lg';
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 1,
+          my: 0.25,
+          fontWeight: isBold ? 800 : 400,
+          fontSize: line.size === 'lg' ? '0.95rem' : undefined,
+        }}
+      >
+        <span>{line.left}</span>
+        <span>{line.right}</span>
+      </Box>
+    );
+  }
+
+  const isTitle = line.size === 'lg' && line.weight === 'bold';
+  return (
+    <Typography
+      align={line.align === 'center' ? 'center' : 'left'}
+      sx={{
+        fontWeight: line.weight === 'bold' || isTitle ? 800 : 400,
+        fontSize: isTitle ? '1rem' : line.size === 'sm' ? '0.65rem' : undefined,
+        my: isTitle ? 0.5 : 0.25,
+        letterSpacing: isTitle ? 1 : 0,
+        wordBreak: 'break-word',
+      }}
+    >
+      {line.text}
+    </Typography>
+  );
 }
 
 /**
- * Thermal receipt preview — renderer output only, not a data source.
+ * On-screen receipt preview — PreviewRenderer output only.
+ * Never used as a print source.
  */
-export function ReceiptThermalView({ receipt, preview = true }: ReceiptThermalViewProps) {
-  const width = receipt.paperWidth === '80mm' ? 320 : 260;
-  const fontSize = receipt.paperWidth === '80mm' ? '0.8rem' : '0.72rem';
-  const lines = buildReceiptLines(receipt);
+export function ReceiptThermalView({ receipt }: ReceiptThermalViewProps) {
+  const output = new PreviewRenderer().render(receipt);
+  const width = output.paperWidth === '80mm' ? 320 : 280;
+  const fontSize = output.paperWidth === '80mm' ? '0.8rem' : '0.72rem';
 
   return (
     <Box
@@ -26,84 +88,20 @@ export function ReceiptThermalView({ receipt, preview = true }: ReceiptThermalVi
         mx: 'auto',
         fontFamily: '"Courier New", Courier, monospace',
         fontSize,
-        lineHeight: 1.4,
-        color: '#111',
+        lineHeight: 1.45,
+        color: '#1a1a1a',
         bgcolor: '#fff',
-        px: 1.5,
-        py: 1.5,
-        border: preview ? '1px dashed' : 'none',
-        borderColor: 'divider',
+        px: 2,
+        py: 2,
+        borderRadius: 3,
+        boxShadow: '0 8px 24px rgba(237, 108, 2, 0.12)',
+        border: '1px solid',
+        borderColor: 'primary.light',
       }}
     >
-      {lines.map((line, index) => {
-        if (line.kind === 'separator') {
-          return (
-            <Typography
-              key={index}
-              align="center"
-              sx={{ fontSize: '0.65rem', my: 0.5, color: 'text.secondary', overflow: 'hidden' }}
-            >
-              {line.text}
-            </Typography>
-          );
-        }
-
-        if (line.kind === 'field' || (line.kind === 'text' && line.align !== 'center')) {
-          const isLarge = line.size === 'lg';
-          const isBold = line.weight === 'bold' || isLarge;
-          return (
-            <Typography
-              key={index}
-              align="left"
-              sx={{
-                fontWeight: isBold ? 800 : 400,
-                fontSize: isLarge ? '0.95rem' : undefined,
-                my: 0.25,
-                wordBreak: 'break-word',
-              }}
-            >
-              {line.text}
-            </Typography>
-          );
-        }
-
-        if (line.kind === 'row' && line.left && line.right) {
-          const isLarge = line.size === 'lg';
-          const isBold = line.weight === 'bold' || isLarge;
-          return (
-            <Box
-              key={index}
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 1,
-                my: 0.25,
-                fontWeight: isBold ? 800 : 400,
-                fontSize: isLarge ? '0.95rem' : undefined,
-              }}
-            >
-              <span>{line.left}</span>
-              <span>{line.right}</span>
-            </Box>
-          );
-        }
-
-        const isTitle = line.size === 'lg' && line.weight === 'bold';
-        return (
-          <Typography
-            key={index}
-            align={line.align === 'center' ? 'center' : 'left'}
-            sx={{
-              fontWeight: line.weight === 'bold' || isTitle ? 800 : 400,
-              fontSize: isTitle ? '1rem' : line.size === 'sm' ? '0.65rem' : undefined,
-              my: isTitle ? 0.5 : 0.25,
-              letterSpacing: isTitle ? 1 : 0,
-            }}
-          >
-            {line.text}
-          </Typography>
-        );
-      })}
+      {output.lines.map((line, index) => (
+        <PreviewLine key={index} line={line} />
+      ))}
     </Box>
   );
 }

@@ -1,5 +1,6 @@
 import type { PrinterAdapter, PrinterReadiness, PrinterStatus } from '../types/printer';
 import { RawBtNotInstalledError } from '../types/printer';
+import type { PrinterProfile } from '../profiles/printerProfile';
 import {
   bytesToBase64,
   dispatchRawBtPrint,
@@ -9,13 +10,19 @@ import {
 
 /**
  * RawBT print bridge for Blueprint BP-ECO58 (Bluetooth Classic via SPP).
- * All RawBT-specific logic stays in this adapter — POS must not import RawBT APIs.
+ * Receives ESC/POS bytes only — never HTML or browser print.
  */
 export class RawBtPrinterAdapter implements PrinterAdapter {
   readonly type = 'rawbt' as const;
 
   private status: PrinterStatus = 'disconnected';
   private rawBtInstalled: boolean | null = null;
+
+  constructor(private readonly profile: PrinterProfile) {}
+
+  get profileId(): string {
+    return `${this.profile.brand}-${this.profile.model}`.toLowerCase();
+  }
 
   isConnected(): boolean {
     return this.status === 'ready' || this.status === 'printing';

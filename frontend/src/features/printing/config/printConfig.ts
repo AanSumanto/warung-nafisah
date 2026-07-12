@@ -1,19 +1,12 @@
 import type { PrintConfig, PrinterType } from '../types/printer';
 import type { ReceiptBusinessConfig } from '../types/receipt';
 import { getClientEnv } from '@/shared/lib/env';
-import { isAndroidDevice } from '../rawbt/rawbtBridge';
 
 const CONFIG_KEY = 'wn_print_config';
 
-function detectDefaultPrinterType(): PrinterType {
-  if (typeof window !== 'undefined' && isAndroidDevice()) {
-    return 'rawbt';
-  }
-  return 'browser';
-}
-
 const DEFAULT_PRINT_CONFIG: PrintConfig = {
-  printerType: detectDefaultPrinterType(),
+  printerType: 'rawbt',
+  printerProfileId: 'blueprint-bp-eco58',
   printerName: 'Blueprint BP-ECO58',
   connectionMethod: 'bluetooth',
   bridge: 'rawbt',
@@ -23,12 +16,28 @@ const DEFAULT_PRINT_CONFIG: PrintConfig = {
   printerConnected: false,
 };
 
+function migrateLegacyConfig(raw: Record<string, unknown>): Partial<PrintConfig> {
+  const next = { ...(raw as Partial<PrintConfig>) };
+
+  if (raw.printerType === 'browser') {
+    next.printerType = 'rawbt';
+    next.bridge = 'rawbt';
+  }
+
+  if (!next.printerProfileId) {
+    next.printerProfileId = 'blueprint-bp-eco58';
+  }
+
+  return next;
+}
+
 export function getPrintConfig(): PrintConfig {
   if (typeof window === 'undefined') return DEFAULT_PRINT_CONFIG;
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (!raw) return DEFAULT_PRINT_CONFIG;
-    return { ...DEFAULT_PRINT_CONFIG, ...(JSON.parse(raw) as Partial<PrintConfig>) };
+    const parsed = migrateLegacyConfig(JSON.parse(raw) as Record<string, unknown>);
+    return { ...DEFAULT_PRINT_CONFIG, ...parsed };
   } catch {
     return DEFAULT_PRINT_CONFIG;
   }

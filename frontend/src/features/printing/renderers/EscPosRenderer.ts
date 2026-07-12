@@ -1,5 +1,11 @@
 import type { Receipt } from '../types/receipt';
-import { buildReceiptLines } from './receiptLayout';
+import type { PrinterProfile } from '../profiles/printerProfile';
+import { BLUEPRINT_BP_ECO58 } from '../profiles/printerProfile';
+import {
+  buildReceiptThermalLines,
+  formatThermalRow,
+  type ThermalReceiptLine,
+} from './receiptThermalLayout';
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -28,48 +34,82 @@ function concatChunks(chunks: Uint8Array[]): Uint8Array {
 
 function textLine(text: string): Uint8Array {
   const encoder = new TextEncoder();
-  return encoder.encode(`${text}${'\n'}`);
+  return encoder.encode(`${text}\n`);
+}
+
+function pushLine(chunks: Uint8Array[], line: ThermalReceiptLine, profile: PrinterProfile): void {
+  const width = profile.charsPerLine;
+
+  if (line.kind === 'heavy-separator' || line.kind === 'light-separator') {
+    chunks.push(CMD.alignCenter(), textLine(line.text ?? ''));
+    chunks.push(CMD.alignLeft());
+    return;
+  }
+
+  if (line.kind === 'field-block' && line.label && line.value) {
+    chunks.push(CMD.alignLeft(), textLine(line.label));
+    chunks.push(textLine(line.value));
+    return;
+  }
+
+  if (line.kind === 'amount-block' && line.label && line.value) {
+    chunks.push(CMD.alignLeft());
+    if (line.weight === 'bold') chunks.push(CMD.boldOn());
+    chunks.push(textLine(line.label));
+    chunks.push(textLine(line.value));
+    if (line.weight === 'bold') chunks.push(CMD.boldOff());
+    return;
+  }
+
+  if (line.align === 'center') {
+    chunks.push(CMD.alignCenter());
+  } else {
+    chunks.push(CMD.alignLeft());
+  }
+
+  if (line.weight === 'bold') {
+    chunks.push(CMD.boldOn());
+  }
+
+  let content = line.text ?? '';
+  if (line.kind === 'item-subtotal') {
+    content = formatThermalRow('', line.text ?? '', width).trim();
+  }
+
+  chunks.push(textLine(content));
+
+  if (line.weight === 'bold') {
+    chunks.push(CMD.boldOff());
+  }
+
+  chunks.push(CMD.alignLeft());
 }
 
 /**
- * ESC/POS command renderer — same Receipt Object as HTML renderer.
+ * ESC/POS command renderer — thermal output only.
+ * Never produces HTML, CSS, or browser print payloads.
  */
 export class EscPosRenderer {
+  constructor(private readonly profile: PrinterProfile = BLUEPRINT_BP_ECO58) {}
+
+  getProfile(): PrinterProfile {
+    return this.profile;
+  }
+
   render(receipt: Receipt): Uint8Array {
     const chunks: Uint8Array[] = [CMD.init()];
-    const lines = buildReceiptLines(receipt);
+    const lines = buildReceiptThermalLines(receipt, this.profile);
 
     for (const line of lines) {
-      if (line.kind === 'separator') {
-        chunks.push(CMD.alignCenter(), textLine(line.text));
-        chunks.push(CMD.alignLeft());
-        continue;
-      }
-
-      if (line.align === 'center') {
-        chunks.push(CMD.alignCenter());
-      } else {
-        chunks.push(CMD.alignLeft());
-      }
-
-      if (line.weight === 'bold') {
-        chunks.push(CMD.boldOn());
-      }
-
-      const content =
-        line.kind === 'row' && line.left && line.right
-          ? `${line.left} ${line.right}`
-          : line.text;
-      chunks.push(textLine(content));
-
-      if (line.weight === 'bold') {
-        chunks.push(CMD.boldOff());
-      }
-
-      chunks.push(CMD.alignLeft());
+      pushLine(chunks, line, this.profile);
     }
 
-    chunks.push(CMD.feed(3), CMD.cut());
+    chunks.push(CMD.feed(4));
+
+    if (this.profile.supportsCut) {
+      chunks.push(CMD.cut());
+    }
+
     return concatChunks(chunks);
   }
 }
