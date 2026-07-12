@@ -38,12 +38,12 @@ export function bytesToBase64(bytes: Uint8Array): string {
 /**
  * Official RawBT intent for binary ESC/POS (Mike42 RawbtPrintConnector).
  * Payload before #Intent is `base64,<data>` — NOT `rawbt:base64,<data>`.
+ * Base64 must be raw (no URL encoding); RawBT decodes it directly.
  *
  * @see https://github.com/mike42/escpos-php/blob/development/src/Mike42/Escpos/PrintConnectors/RawbtPrintConnector.php
  */
 export function buildRawBtIntentUrl(base64Data: string): string {
-  const safeBase64 = encodeURIComponent(base64Data);
-  return `intent:base64,${safeBase64}#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end;`;
+  return `intent:base64,${base64Data}#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end;`;
 }
 
 /**
@@ -75,9 +75,20 @@ function assertEscPosPayload(bytes: Uint8Array): void {
   }
 }
 
+/** Open a RawBT URI without navigating the SPA away from the current page. */
+export function openRawBtUri(uri: string): void {
+  const link = document.createElement('a');
+  link.href = uri;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 /**
  * Dispatch ESC/POS bytes to RawBT.
- * Uses official intent format first; falls back to rawbt:base64 scheme.
+ * Uses `rawbt:base64,<data>` — the official binary channel (DemoRawBtPrinter test2).
+ * Intent URI is logged for audit only; URL-encoding base64 corrupts RawBT decode (WRC error).
  */
 export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchContext = {}): void {
   if (typeof window === 'undefined') {
@@ -87,8 +98,8 @@ export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchCont
   assertEscPosPayload(bytes);
 
   const base64Data = bytesToBase64(bytes);
-  const intentUri = buildRawBtIntentUrl(base64Data);
   const schemeUri = buildRawBtSchemeUrl(base64Data);
+  const intentUri = buildRawBtIntentUrl(base64Data);
 
   rawbtLog.info('dispatch:prepare', {
     renderer: context.renderer ?? RAWBT_RENDERER,
@@ -99,30 +110,13 @@ export function dispatchRawBtPrint(bytes: Uint8Array, context: RawBtDispatchCont
     payloadBase64Length: base64Data.length,
     payloadPreview: base64Preview(base64Data),
     payloadPreviewHex: bytesPreviewHex(bytes),
-    intentUri,
     schemeUri,
+    intentUri,
   });
 
   try {
-    rawbtLog.info('dispatch:attempt', { method: 'intent', mimeType: RAWBT_MIME_TYPE, intentUri });
-    window.location.href = intentUri;
-    rawbtLog.info('dispatch:callback', { method: 'intent', status: 'dispatched' });
-    return;
-  } catch (error) {
-    rawbtLog.error('dispatch:error', {
-      method: 'intent',
-      error: error instanceof Error ? error.message : String(error),
-      intentUri,
-    });
-
-    if (isActivityNotFoundError(error)) {
-      throw new RawBtNotInstalledError();
-    }
-  }
-
-  try {
     rawbtLog.info('dispatch:attempt', { method: 'scheme', mimeType: RAWBT_MIME_TYPE, schemeUri });
-    window.location.href = schemeUri;
+    openRawBtUri(schemeUri);
     rawbtLog.info('dispatch:callback', { method: 'scheme', status: 'dispatched' });
   } catch (error) {
     rawbtLog.error('dispatch:error', {

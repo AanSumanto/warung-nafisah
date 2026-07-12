@@ -12,6 +12,7 @@ import {
   bytesToBase64,
   buildRawBtIntentUrl,
   buildRawBtSchemeUrl,
+  dispatchRawBtPrint,
   isAndroidDevice,
 } from '@/features/printing/rawbt/rawbtBridge';
 import { isActivityNotFoundError } from '@/features/printing/rawbt/rawbtLogger';
@@ -157,9 +158,10 @@ describe('rawbt bridge', () => {
     expect(url).toContain('end;');
   });
 
-  it('URL-encodes base64 special characters in intent', () => {
+  it('keeps raw base64 in intent URL (no URL encoding)', () => {
     const url = buildRawBtIntentUrl('a+b/c=');
-    expect(url).toContain('a%2Bb%2Fc%3D');
+    expect(url).toBe('intent:base64,a+b/c=#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;');
+    expect(url).not.toContain('%');
   });
 
   it('detects Android user agent', () => {
@@ -172,9 +174,27 @@ describe('rawbt bridge', () => {
     Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true });
   });
 
-  it('throws RawBtNotInstalledError on Activity Not Found', () => {
-    const error = new Error('Activity not found');
-    expect(isActivityNotFoundError(error)).toBe(true);
+  it('dispatches via rawbt:base64 scheme anchor (not intent location)', () => {
+    const bytes = new Uint8Array([0x1b, 0x40, 0x0a]);
+    const click = vi.fn();
+    const remove = vi.fn();
+    const appendChild = vi.fn();
+    const link = { href: '', style: { display: '' }, click, remove } as unknown as HTMLAnchorElement;
+    const mockDocument = {
+      createElement: vi.fn().mockReturnValue(link),
+      body: { appendChild },
+    };
+
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('document', mockDocument);
+
+    dispatchRawBtPrint(bytes);
+
+    expect(link.href).toBe('rawbt:base64,G0AK');
+    expect(click).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledOnce();
+
+    vi.unstubAllGlobals();
   });
 });
 

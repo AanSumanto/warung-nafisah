@@ -1,68 +1,57 @@
 # RawBT WRC Error — Root Cause Analysis
 
 **Date:** 2026-07-12  
-**Symptom:** RawBT opens, printer connected, Test Print shows **WRC Error**  
-**Status:** Fixed
+**Symptom:** RawBT opens, shows **Sent: 2 / Received: 0** and **wrc error**  
+**Status:** Fix applied (round 2)
 
 ## Summary
 
-**WRC Error** = RawBT rejected the payload as **Wrong RawBT Content** — invalid URI / protocol format, not a Bluetooth connection issue.
+**WRC Error** = RawBT could not deliver valid ESC/POS bytes to the printer. The app opens and Bluetooth is paired, but the decoded payload was corrupted.
 
 ## Root Causes
 
-### 1. Incorrect Intent URI format (primary)
+### 1. URL-encoded base64 in intent (primary — round 2)
 
-Our implementation sent:
+`encodeURIComponent(base64Data)` was applied before sending. Mike42 `RawbtPrintConnector` uses **raw base64** with no encoding:
 
-```
-intent:rawbt:base64,<data>#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;
-```
-
-Official RawBT / Mike42 `RawbtPrintConnector` format:
-
-```
-intent:base64,<data>#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;
+```php
+echo "intent:base64," . base64_encode($this->getData()) . "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
 ```
 
-The extra `rawbt:` prefix inside the intent payload caused RawBT to mis-parse the content → **WRC Error**.
+RawBT decodes the base64 segment directly. Percent-encoded sequences (`%2B`, `%2F`, `%3D`) are **not** valid base64 → decode yields garbage (often only a few bytes) → **Sent: 2 / Received: 0** and **wrc error**.
 
-References:
-- [Mike42 RawbtPrintConnector.php](https://github.com/mike42/escpos-php/blob/development/src/Mike42/Escpos/PrintConnectors/RawbtPrintConnector.php)
-- [402d DemoRawBtPrinter test16](https://github.com/402d/DemoRawBtPrinter) — `base64,` + encoded bytes
+### 2. Wrong dispatch channel (secondary — round 2)
 
-### 2. Base64 URL corruption (secondary)
+We used `window.location.href = intent:base64,...` which navigates the SPA and never reached the `rawbt:base64,` fallback (assignment does not throw).
 
-Standard base64 contains `+`, `/`, `=` which can corrupt when embedded in `window.location.href` without encoding.
+Official binary channel per [DemoRawBtPrinter test2](https://github.com/402d/DemoRawBtPrinter):
 
-Fix: `encodeURIComponent(base64Data)` in intent URL only; `rawbt:base64,<data>` scheme unchanged.
+```java
+String url = "rawbt:base64," + base64ToPrint;
+Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+```
 
-### 3. UTF-8 text in ESC/POS bytes (secondary)
+Fix: dispatch `rawbt:base64,<raw_base64>` via hidden `<a>` click.
 
-`TextEncoder` produced UTF-8 multi-byte sequences. Thermal printers expect single-byte ESC/POS.
+### 3. Incorrect intent prefix (round 1 — already fixed)
 
-Fix: `EscPosRenderer` now encodes text as Latin-1 single-byte (chars > 0xFF → `?`).
+`intent:rawbt:base64,<data>` → must be `intent:base64,<data>#Intent;scheme=rawbt;...`
 
-## What was NOT the cause
+### 4. UTF-8 in ESC/POS (round 1 — already fixed)
 
-| Checked | Result |
-|---------|--------|
-| HTML/React sent to RawBT | No — payload is `Uint8Array` from `EscPosRenderer` |
-| Printer Bluetooth connection | No — RawBT opens, printer paired |
-| RawBT not installed | No — app launches |
-| Install probe heuristics | Already removed in prior sprint |
+`TextEncoder` → Latin-1 single-byte encoding in `EscPosRenderer`.
 
-## Fix Applied
+## Fix Applied (round 2)
 
-1. **Intent URI:** `intent:base64,<encoded>#Intent;scheme=rawbt;package=...;end;`
-2. **Scheme fallback:** `rawbt:base64,<encoded>` (official binary channel)
-3. **MIME type:** `application/octet-stream` (logged, not HTML)
-4. **ESC/POS validation:** payload must start with `ESC @` (0x1B 0x40)
-5. **Logging:** intent URI, MIME, payload length, preview (100 chars), hex header, renderer, receipt summary
-6. **PrintService:** passes Receipt Object context to adapter for audit logs
+1. **Remove** `encodeURIComponent` from base64 in all RawBT URIs
+2. **Primary dispatch:** `rawbt:base64,<raw_base64>` via `openRawBtUri()` (anchor click)
+3. **Intent URI** kept for logging/audit only (Mike42 format, raw base64)
+4. **No** `window.location.href` navigation during print
 
-## Verification
+## Verification on device
 
-1. Android Chrome → POS → Cetak Struk
-2. Console: `[RawBT] dispatch:prepare` shows `intent:base64,` (NOT `intent:rawbt:base64`)
-3. RawBT Test Print → no WRC Error
-4. Blueprint BP-ECO58 prints thermal receipt
+1. Deploy latest frontend to Vercel
+2. Android Chrome → POS → Cetak Struk
+3. Console: `[RawBT] dispatch:attempt` method = `scheme`, URI starts with `rawbt:base64,`
+4. RawBT dialog: no **wrc error**; receipt prints on BP-ECO58
+5. If RawBT native Test Print works but web still fails, compare payload hex in console log
