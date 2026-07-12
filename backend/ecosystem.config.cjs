@@ -13,6 +13,7 @@ module.exports = {
       kill_timeout: 10_000,
       wait_ready: true,
       listen_timeout: 30_000,
+      env_file: '.env',
       env: {
         NODE_ENV: 'development',
       },

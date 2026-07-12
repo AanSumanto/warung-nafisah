@@ -125,8 +125,18 @@ CORS_ORIGINS=https://warung-nafisah.vercel.app,https://preview-branch.vercel.app
 After changing `.env`:
 
 ```bash
-npm run pm2:restart
+npm run pm2:restart -- --update-env
 ```
+
+Or fully reload config:
+
+```bash
+pm2 delete warung-nafisah-api
+npm run pm2:start
+pm2 save
+```
+
+If `PORT` changed, also update Vercel `API_PROXY_TARGET` (e.g. `http://YOUR_IP:7000`).
 
 Disallowed origins receive **403** (`CORS_001`), not HTTP 500.
 
