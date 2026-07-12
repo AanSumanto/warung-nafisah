@@ -44,6 +44,19 @@ function buildSecurityHeaders() {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET?.replace(/\/$/, '');
+    if (!target) {
+      return [];
+    }
+
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${target}/api/v1/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {

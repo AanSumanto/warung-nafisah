@@ -3,7 +3,7 @@ import { z } from 'zod';
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_API_BASE_URL: z
     .string()
-    .default('http://localhost:5000')
+    .default('')
     .refine(
       (value) => value === '' || z.string().url().safeParse(value).success,
       'NEXT_PUBLIC_API_BASE_URL must be empty (same origin) or a valid URL',
