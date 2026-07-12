@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "pm2:start": "pm2 start ecosystem.config.cjs --env production",
+    "pm2:start": "npm run build && pm2 start ecosystem.config.cjs --env production",
     "pm2:startOrReload": "pm2 startOrReload ecosystem.config.cjs --env production",
     "pm2:stop": "pm2 stop warung-nafisah-api",
     "pm2:restart": "pm2 restart warung-nafisah-api --env production",
