@@ -1,16 +1,26 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "experimentalServices": {
+  "services": {
     "frontend": {
-      "entrypoint": "frontend",
-      "routePrefix": "/",
-      "framework": "nextjs"
+      "root": "frontend",
+      "framework": "nextjs",
+      "installCommand": "cd .. && npm ci"
     },
     "backend": {
-      "entrypoint": "backend",
-      "routePrefix": "/api",
+      "root": "backend",
       "framework": "express",
+      "installCommand": "cd .. && npm ci",
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
+    }
+  ]
 }
