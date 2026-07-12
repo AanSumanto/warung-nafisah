@@ -1,0 +1,39 @@
+# Warung Nafisah ERP — Local development infrastructure (ADR-001)
+# MongoDB + Redis only. Backend runs natively (npm run dev in backend/).
+# Frontend deploys to Vercel — no frontend container.
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: wn-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data:/data/db
+      - ./infra/mongo/init-replica.js:/docker-entrypoint-initdb.d/init-replica.js:ro
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: wn-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    volumes:
+      - redis_data:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongodb_data:
+  redis_data:

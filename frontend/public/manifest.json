@@ -1,0 +1,11 @@
+{
+  "name": "Warung Nafisah POS",
+  "short_name": "WN POS",
+  "description": "Sistem kasir Warung Nafisah",
+  "start_url": "/pos",
+  "display": "standalone",
+  "background_color": "#F7F4F0",
+  "theme_color": "#C45C26",
+  "orientation": "portrait-primary",
+  "lang": "id"
+}
