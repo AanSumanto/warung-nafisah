@@ -6,13 +6,13 @@ Internal restaurant management system for **Warung Nafisah** — dual-shift waru
 
 ## Phase Status
 
-| Phase | Scope | Status |
-|-------|-------|--------|
-| 0 / 0.5 | Requirements + Architecture Freeze | ✅ Approved |
-| ADR-001 | Multi-Repository Strategy | ✅ Approved |
-| Sprint 1 | Backend Foundation (v0.5.1) | ✅ Approved |
-| Sprint 2 | Core Domain Framework (v0.6.0) | ✅ Approved |
-| Sprint 3A | Frontend Foundation (v0.7.0) | ✅ Complete |
+| Phase     | Scope                              | Status      |
+| --------- | ---------------------------------- | ----------- |
+| 0 / 0.5   | Requirements + Architecture Freeze | ✅ Approved |
+| ADR-001   | Multi-Repository Strategy          | ✅ Approved |
+| Sprint 1  | Backend Foundation (v0.5.1)        | ✅ Approved |
+| Sprint 2  | Core Domain Framework (v0.6.0)     | ✅ Approved |
+| Sprint 3A | Frontend Foundation (v0.7.0)       | ✅ Complete |
 
 ## Repository Structure
 
@@ -55,19 +55,19 @@ npm run dev --workspace=@warung-nafisah/frontend
 
 ## Root Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run build` | Build backend + frontend |
-| `npm run test` | Run all workspace tests |
+| Script                | Description               |
+| --------------------- | ------------------------- |
+| `npm run build`       | Build backend + frontend  |
+| `npm run test`        | Run all workspace tests   |
 | `npm run verify:repo` | Structure + format + lint |
-| `npm run dev` | Show dev server commands |
+| `npm run dev`         | Show dev server commands  |
 
 ## Workspaces
 
-| Package | Purpose |
-|---------|---------|
-| `@warung-nafisah/backend` | Express API, domain framework, health endpoints |
-| `@warung-nafisah/frontend` | Next.js UI shell, MUI theme, API client |
+| Package                    | Purpose                                         |
+| -------------------------- | ----------------------------------------------- |
+| `@warung-nafisah/backend`  | Express API, domain framework, health endpoints |
+| `@warung-nafisah/frontend` | Next.js UI shell, MUI theme, API client         |
 
 ## Documentation
 

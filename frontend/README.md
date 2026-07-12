@@ -25,13 +25,13 @@ Open [http://localhost:3000](http://localhost:3000) — empty App Shell (no busi
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Development server (port 3000) |
-| `npm run build` | Production build |
-| `npm run start` | Production server |
-| `npm test` | Unit tests (Vitest) |
-| `npm run lint` | ESLint |
+| Command         | Description                    |
+| --------------- | ------------------------------ |
+| `npm run dev`   | Development server (port 3000) |
+| `npm run build` | Production build               |
+| `npm run start` | Production server              |
+| `npm test`      | Unit tests (Vitest)            |
+| `npm run lint`  | ESLint                         |
 
 ## Structure
 

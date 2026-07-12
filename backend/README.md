@@ -62,17 +62,17 @@ nano .env
 
 Production `.env` minimum:
 
-| Variable | Example |
-|----------|---------|
-| `NODE_ENV` | `production` |
-| `PORT` | `5000` |
-| `HOST` | `0.0.0.0` |
-| `MONGODB_URI` | `mongodb+srv://...` |
-| `MONGODB_DB_NAME` | `warung_nafisah` |
-| `REDIS_URL` | `rediss://...` |
-| `JWT_SECRET` | strong random 64+ chars |
-| `CORS_ORIGINS` | `https://warung-nafisah.vercel.app` (comma-separated, HTTPS only) |
-| `LOG_LEVEL` | `warn` |
+| Variable          | Example                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| `NODE_ENV`        | `production`                                                      |
+| `PORT`            | `5000`                                                            |
+| `HOST`            | `0.0.0.0`                                                         |
+| `MONGODB_URI`     | `mongodb+srv://...`                                               |
+| `MONGODB_DB_NAME` | `warung_nafisah`                                                  |
+| `REDIS_URL`       | `rediss://...`                                                    |
+| `JWT_SECRET`      | strong random 64+ chars                                           |
+| `CORS_ORIGINS`    | `https://warung-nafisah.vercel.app` (comma-separated, HTTPS only) |
+| `LOG_LEVEL`       | `warn`                                                            |
 
 ### 4. Start with PM2
 
@@ -94,15 +94,15 @@ pm2 save
 
 ### PM2 commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run pm2:start` | First-time start (production env) |
-| `npm run pm2:startOrReload` | Start or zero-downtime reload |
-| `npm run deploy:pm2` | Build + startOrReload |
-| `npm run pm2:restart` | Hard restart |
-| `npm run pm2:stop` | Stop process |
-| `npm run pm2:logs` | Tail logs |
-| `npm run pm2:status` | Process status |
+| Command                     | Description                       |
+| --------------------------- | --------------------------------- |
+| `npm run pm2:start`         | First-time start (production env) |
+| `npm run pm2:startOrReload` | Start or zero-downtime reload     |
+| `npm run deploy:pm2`        | Build + startOrReload             |
+| `npm run pm2:restart`       | Hard restart                      |
+| `npm run pm2:stop`          | Stop process                      |
+| `npm run pm2:logs`          | Tail logs                         |
+| `npm run pm2:status`        | Process status                    |
 
 Logs are written to `backend/logs/pm2-*.log`.
 
@@ -144,20 +144,20 @@ See [CORS configuration](../reports/security/05-cors-configuration.md) for full 
 
 ## Health endpoints
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/v1/health/live` | Liveness |
-| `GET /api/v1/health/ready` | Readiness (MongoDB + Redis + BullMQ) |
-| `GET /api/v1/health/health` | Detailed (disabled in production) |
+| Endpoint                    | Purpose                              |
+| --------------------------- | ------------------------------------ |
+| `GET /api/v1/health/live`   | Liveness                             |
+| `GET /api/v1/health/ready`  | Readiness (MongoDB + Redis + BullMQ) |
+| `GET /api/v1/health/health` | Detailed (disabled in production)    |
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Development (tsx watch) |
+| Command         | Description                  |
+| --------------- | ---------------------------- |
+| `npm run dev`   | Development (tsx watch)      |
 | `npm run build` | Compile TypeScript → `dist/` |
-| `npm start` | Run `dist/server.js` |
-| `npm test` | Vitest |
+| `npm start`     | Run `dist/server.js`         |
+| `npm test`      | Vitest                       |
 
 ## Environment variables
 
