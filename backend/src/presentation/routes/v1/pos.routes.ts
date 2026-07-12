@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { getEnv } from '../../../config/env.js';
 import { ResponseWrapper } from '../../../core/http/ResponseWrapper.js';
 import { ValidationException } from '../../../core/exceptions/BaseException.js';
 import type { PosService } from '../../../application/pos/PosService.js';
@@ -51,6 +52,7 @@ const loginRateLimit = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => getEnv().NODE_ENV === 'test',
   message: {
     success: false,
     error: {

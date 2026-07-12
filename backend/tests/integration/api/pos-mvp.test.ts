@@ -5,6 +5,7 @@ import {
   setupMongoMemoryServer,
   teardownMongoMemoryServer,
 } from '../../helpers/persistence/mongo-memory.js';
+import { loginAndGetToken } from '../../helpers/auth/login.js';
 import { ensureEventCollections } from '../../../src/infrastructure/events/EventPlatformFactory.js';
 import { seedPosData } from '../../../src/infrastructure/auth/seedPosData.js';
 import { getMenuModel } from '../../../src/infrastructure/pos/documents/MenuDocument.js';
@@ -13,7 +14,10 @@ import { getPaymentModel } from '../../../src/infrastructure/pos/documents/Order
 import { getOutboxModel } from '../../../src/infrastructure/events/documents/EventDocuments.js';
 import { getStoredEventModel } from '../../../src/infrastructure/events/documents/EventDocuments.js';
 import { getShiftModel } from '../../../src/infrastructure/pos/documents/ShiftDocument.js';
-import { getUserModel } from '../../../src/infrastructure/auth/documents/UserDocument.js';
+
+const KASIR_EMAIL = 'kasir@warungnafisah.local';
+const OWNER_EMAIL = 'owner@warungnafisah.local';
+const DEFAULT_PASSWORD = 'warung123';
 
 describe('Operational POS MVP Integration', () => {
   const app = createApp();
@@ -42,17 +46,11 @@ describe('Operational POS MVP Integration', () => {
       getShiftModel().deleteMany({}),
     ]);
 
-    const loginKasir = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: 'kasir@warungnafisah.local', password: 'warung123' });
-    kasirToken = loginKasir.body.data.token;
-
-    const loginOwner = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: 'owner@warungnafisah.local', password: 'warung123' });
-    ownerToken = loginOwner.body.data.token;
+    kasirToken = await loginAndGetToken(app, KASIR_EMAIL, DEFAULT_PASSWORD);
+    ownerToken = await loginAndGetToken(app, OWNER_EMAIL, DEFAULT_PASSWORD);
 
     const menu = await getMenuModel().findOne({ status: 'available', kodeMenu: 'LL001' }).lean();
+    expect(menu).toBeDefined();
     kodeMenu = menu!.kodeMenu;
   });
 
@@ -158,30 +156,35 @@ describe('Operational POS MVP Integration', () => {
     const changeRes = await request(app)
       .post('/api/v1/auth/change-password')
       .set('Authorization', `Bearer ${kasirToken}`)
-      .send({ currentPassword: 'warung123', newPassword: 'NewSecure99!' });
+      .send({ currentPassword: DEFAULT_PASSWORD, newPassword: 'NewSecure99!' });
     expect(changeRes.status).toBe(200);
+    expect(changeRes.body.success).toBe(true);
     expect(changeRes.body.data.changed).toBe(true);
 
     const oldLogin = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: 'kasir@warungnafisah.local', password: 'warung123' });
+      .send({ email: KASIR_EMAIL, password: DEFAULT_PASSWORD });
     expect(oldLogin.status).toBe(401);
+    expect(oldLogin.body.success).toBe(false);
 
-    const newLogin = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: 'kasir@warungnafisah.local', password: 'NewSecure99!' });
-    expect(newLogin.status).toBe(200);
+    const newToken = await loginAndGetToken(app, KASIR_EMAIL, 'NewSecure99!');
 
-    await request(app)
+    const restoreRes = await request(app)
       .post('/api/v1/auth/change-password')
-      .set('Authorization', `Bearer ${newLogin.body.data.token}`)
-      .send({ currentPassword: 'NewSecure99!', newPassword: 'warung123' });
+      .set('Authorization', `Bearer ${newToken}`)
+      .send({ currentPassword: 'NewSecure99!', newPassword: DEFAULT_PASSWORD });
+    expect(restoreRes.status).toBe(200);
+    expect(restoreRes.body.success).toBe(true);
+    expect(restoreRes.body.data.changed).toBe(true);
+
+    await loginAndGetToken(app, KASIR_EMAIL, DEFAULT_PASSWORD);
   });
 
   it('rejects change password without auth', async () => {
     const res = await request(app)
       .post('/api/v1/auth/change-password')
-      .send({ currentPassword: 'warung123', newPassword: 'NewSecure99!' });
+      .send({ currentPassword: DEFAULT_PASSWORD, newPassword: 'NewSecure99!' });
     expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
   });
 });

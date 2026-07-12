@@ -13,6 +13,20 @@ All notable changes to the Warung Nafisah ERP project documentation.
 
 ---
 
+## [0.11.4-hotfix] — 2026-07-12 — Login Rate Limit CI Fix
+
+### Fixed
+
+- Integration tests failed after login rate limit (max 10) blocked `beforeEach` logins
+- Skip login rate limit in `NODE_ENV=test`; production unchanged
+- `loginAndGetToken()` helper with explicit API contract assertions
+
+### Docs
+
+- `reports/testing/14-login-rate-limit-rca.md`
+
+---
+
 ## [0.11.4] — 2026-07-12 — Sprint 4.5.2 Revision Thermal Printing
 
 ### Fixed
