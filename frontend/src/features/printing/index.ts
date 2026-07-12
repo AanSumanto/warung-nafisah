@@ -29,8 +29,8 @@ export {
   buildRawBtSchemeUrl,
   dispatchRawBtPrint,
   isAndroidDevice,
-  probeRawBtInstalled,
 } from './rawbt/rawbtBridge';
+export { rawbtLog, isActivityNotFoundError } from './rawbt/rawbtLogger';
 export { PrintQueue } from './services/PrintQueue';
 export {
   PrintService,

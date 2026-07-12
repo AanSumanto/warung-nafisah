@@ -88,21 +88,24 @@ Implementations:
 
 | Condition | UI |
 |-----------|-----|
-| RawBT not installed | Dialog + tombol **Install RawBT** → Play Store |
+| RawBT not installed | Dialog only when Android returns Activity Not Found on dispatch |
 | Print in progress | Snackbar info |
 | Print success | Snackbar success |
 | Other errors | Snackbar error |
 
-`RawBtNotInstalledError` dipakai agar POS tidak perlu mengenal detail intent RawBT.
+No install probe, timeout, or visibility heuristics. Intent is sent immediately on print.
+
+`[RawBT]` console logs record intent URL, payload size, dispatch method, and errors for debugging.
 
 ## Printer Readiness States
 
 | State | Meaning |
 |-------|---------|
-| Printer Siap | Android + RawBT terpasang + user menandai printer terhubung |
-| Printer Belum Terhubung | RawBT terpasang, belum dikonfirmasi di konfigurasi |
-| RawBT Belum Terpasang | Probe intent gagal |
-| Printer Tidak Tersedia | Non-Android / browser fallback |
+| Printer Siap | Android + user menandai printer terhubung di RawBT |
+| Printer Belum Terhubung | Android, belum dikonfirmasi di konfigurasi |
+| Printer Tidak Tersedia | Non-Android |
+
+Install status is **not** probed proactively. RawBT is invoked directly on print.
 
 Konfigurasi di `/profil` → **Konfigurasi Printer**.
 

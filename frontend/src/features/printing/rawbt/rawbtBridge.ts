@@ -1,3 +1,6 @@
+import { isActivityNotFoundError, rawbtLog } from './rawbtLogger';
+import { RawBtNotInstalledError } from '../types/printer';
+
 export const RAWBT_PACKAGE = 'ru.a402d.rawbtprinter';
 
 export const RAWBT_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${RAWBT_PACKAGE}`;
@@ -22,101 +25,76 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Android intent URL that opens RawBT with ESC/POS base64 payload. */
+/**
+ * RawBT intent URL — recommended for web when package must be targeted.
+ * @see https://rawbt.ru/start.html
+ */
 export function buildRawBtIntentUrl(base64Data: string): string {
-  return `intent:rawbt:base64,${base64Data}#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end`;
+  const payload = `rawbt:base64,${base64Data}`;
+  return `intent:${payload}#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end;`;
 }
 
-/** Direct scheme fallback (some WebViews). */
+/**
+ * RawBT scheme URL — primary channel for ESC/POS binary (no distortion).
+ * @see https://rawbt.ru/start.html
+ */
 export function buildRawBtSchemeUrl(base64Data: string): string {
   return `rawbt:base64,${base64Data}`;
 }
 
-export interface RawBtDispatchResult {
-  readonly opened: boolean;
-}
-
 /**
- * Dispatch print payload to RawBT via Android intent.
- * Returns opened=true when the page loses focus (RawBT likely opened).
+ * Dispatch ESC/POS payload to RawBT immediately.
+ * No install probe, no timeout, no visibility heuristics.
+ *
+ * Throws RawBtNotInstalledError only when the browser surfaces an Activity Not Found
+ * (or equivalent) error synchronously.
  */
-export function dispatchRawBtPrint(base64Data: string, timeoutMs = 1500): Promise<RawBtDispatchResult> {
-  if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return Promise.resolve({ opened: false });
+export function dispatchRawBtPrint(base64Data: string): void {
+  if (typeof window === 'undefined') {
+    throw new Error('RawBT dispatch hanya tersedia di browser');
   }
 
-  const url = buildRawBtIntentUrl(base64Data);
+  const schemeUrl = buildRawBtSchemeUrl(base64Data);
+  const intentUrl = buildRawBtIntentUrl(base64Data);
+  const payloadBytesEstimate = Math.floor((base64Data.length * 3) / 4);
 
-  return new Promise((resolve) => {
-    let settled = false;
-
-    const finish = (opened: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('blur', onBlur);
-      document.removeEventListener('visibilitychange', onVisibility);
-      iframe.remove();
-      resolve({ opened });
-    };
-
-    const onBlur = () => finish(true);
-    const onVisibility = () => {
-      if (document.hidden) finish(true);
-    };
-
-    window.addEventListener('blur', onBlur);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'display:none;width:0;height:0;border:0';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    window.setTimeout(() => {
-      try {
-        window.location.href = buildRawBtSchemeUrl(base64Data);
-      } catch {
-        // ignore navigation errors in restricted contexts
-      }
-      window.setTimeout(() => finish(false), 400);
-    }, timeoutMs);
+  rawbtLog.info('dispatch:start', {
+    payloadBase64Length: base64Data.length,
+    payloadBytesEstimate,
+    schemeUrl,
+    intentUrl,
   });
-}
 
-/**
- * Probe whether RawBT is installed by attempting a lightweight intent.
- * opened=true implies RawBT responded (page blurred / hidden).
- */
-export function probeRawBtInstalled(timeoutMs = 1200): Promise<boolean> {
-  if (!isAndroidDevice() || typeof window === 'undefined' || typeof document === 'undefined') {
-    return Promise.resolve(false);
+  try {
+    rawbtLog.info('dispatch:attempt', { method: 'scheme', schemeUrl });
+    window.location.href = schemeUrl;
+    rawbtLog.info('dispatch:callback', { method: 'scheme', status: 'dispatched' });
+    return;
+  } catch (error) {
+    rawbtLog.error('dispatch:error', {
+      method: 'scheme',
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    if (isActivityNotFoundError(error)) {
+      throw new RawBtNotInstalledError();
+    }
   }
 
-  return new Promise((resolve) => {
-    let settled = false;
+  try {
+    rawbtLog.info('dispatch:attempt', { method: 'intent', intentUrl });
+    window.location.href = intentUrl;
+    rawbtLog.info('dispatch:callback', { method: 'intent', status: 'dispatched' });
+  } catch (error) {
+    rawbtLog.error('dispatch:error', {
+      method: 'intent',
+      error: error instanceof Error ? error.message : String(error),
+    });
 
-    const finish = (installed: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('blur', onBlur);
-      document.removeEventListener('visibilitychange', onVisibility);
-      iframe.remove();
-      resolve(installed);
-    };
+    if (isActivityNotFoundError(error)) {
+      throw new RawBtNotInstalledError();
+    }
 
-    const onBlur = () => finish(true);
-    const onVisibility = () => {
-      if (document.hidden) finish(true);
-    };
-
-    window.addEventListener('blur', onBlur);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'display:none;width:0;height:0;border:0';
-    iframe.src = `intent://check/#Intent;scheme=rawbt;package=${RAWBT_PACKAGE};end`;
-    document.body.appendChild(iframe);
-
-    window.setTimeout(() => finish(false), timeoutMs);
-  });
+    throw error;
+  }
 }

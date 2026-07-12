@@ -1,22 +1,17 @@
 import type { PrinterAdapter, PrinterReadiness, PrinterStatus } from '../types/printer';
 import { RawBtNotInstalledError } from '../types/printer';
 import type { PrinterProfile } from '../profiles/printerProfile';
-import {
-  bytesToBase64,
-  dispatchRawBtPrint,
-  isAndroidDevice,
-  probeRawBtInstalled,
-} from '../rawbt/rawbtBridge';
+import { bytesToBase64, dispatchRawBtPrint, isAndroidDevice } from '../rawbt/rawbtBridge';
+import { isActivityNotFoundError, rawbtLog } from '../rawbt/rawbtLogger';
 
 /**
  * RawBT print bridge for Blueprint BP-ECO58 (Bluetooth Classic via SPP).
- * Receives ESC/POS bytes only — never HTML or browser print.
+ * Sends ESC/POS bytes via Android intent — no install pre-check.
  */
 export class RawBtPrinterAdapter implements PrinterAdapter {
   readonly type = 'rawbt' as const;
 
   private status: PrinterStatus = 'disconnected';
-  private rawBtInstalled: boolean | null = null;
 
   constructor(private readonly profile: PrinterProfile) {}
 
@@ -32,18 +27,13 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
     return this.status;
   }
 
+  /** Android device can use RawBT — install is verified only on dispatch error. */
   async isAvailable(): Promise<boolean> {
-    if (!isAndroidDevice()) return false;
-    if (this.rawBtInstalled !== null) return this.rawBtInstalled;
-    this.rawBtInstalled = await probeRawBtInstalled();
-    return this.rawBtInstalled;
+    return isAndroidDevice();
   }
 
   async getReadiness(): Promise<PrinterReadiness> {
     if (!isAndroidDevice()) return 'unavailable';
-
-    const installed = await this.isAvailable();
-    if (!installed) return 'rawbt_not_installed';
 
     if (typeof window !== 'undefined') {
       try {
@@ -62,14 +52,8 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
       throw new Error('RawBT hanya tersedia di perangkat Android');
     }
 
-    this.status = 'connecting';
-    const installed = await this.isAvailable();
-    if (!installed) {
-      this.status = 'error';
-      throw new RawBtNotInstalledError();
-    }
-
     this.status = 'ready';
+    rawbtLog.info('adapter:connect', { status: 'ready' });
   }
 
   async disconnect(): Promise<void> {
@@ -83,39 +67,42 @@ export class RawBtPrinterAdapter implements PrinterAdapter {
   }
 
   async print(data: Uint8Array): Promise<void> {
-    await this.sendToRawBt(data);
+    await this.sendToRawBt(data, 'print');
   }
 
   async reprint(data: Uint8Array): Promise<void> {
-    await this.sendToRawBt(data);
+    await this.sendToRawBt(data, 'reprint');
   }
 
-  private async sendToRawBt(data: Uint8Array): Promise<void> {
+  private async sendToRawBt(data: Uint8Array, action: 'print' | 'reprint'): Promise<void> {
     if (!isAndroidDevice()) {
       throw new Error('RawBT hanya tersedia di perangkat Android');
     }
 
-    const installed = await this.isAvailable();
-    if (!installed) {
-      throw new RawBtNotInstalledError();
-    }
-
     this.status = 'printing';
+
     try {
       const base64 = bytesToBase64(data);
-      const result = await dispatchRawBtPrint(base64);
+      rawbtLog.info('adapter:send', {
+        action,
+        bytes: data.length,
+        profile: this.profileId,
+        payloadBase64Length: base64.length,
+      });
 
-      if (!result.opened) {
-        const recheck = await probeRawBtInstalled(800);
-        if (!recheck) {
-          this.rawBtInstalled = false;
-          throw new RawBtNotInstalledError();
-        }
-      }
-
+      dispatchRawBtPrint(base64);
       this.status = 'ready';
     } catch (error) {
       this.status = 'error';
+      rawbtLog.error('adapter:error', {
+        action,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      if (error instanceof RawBtNotInstalledError || isActivityNotFoundError(error)) {
+        throw new RawBtNotInstalledError();
+      }
+
       throw error;
     }
   }

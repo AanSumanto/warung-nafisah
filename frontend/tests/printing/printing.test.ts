@@ -11,8 +11,10 @@ import { BLUEPRINT_BP_ECO58 } from '@/features/printing/profiles/printerProfile'
 import {
   bytesToBase64,
   buildRawBtIntentUrl,
+  buildRawBtSchemeUrl,
   isAndroidDevice,
 } from '@/features/printing/rawbt/rawbtBridge';
+import { isActivityNotFoundError } from '@/features/printing/rawbt/rawbtLogger';
 import { RawBtNotInstalledError } from '@/features/printing/types/printer';
 import type { PrintConfig } from '@/features/printing/types/printer';
 
@@ -150,10 +152,20 @@ describe('rawbt bridge', () => {
     expect(encoded).toBe('G0AK');
   });
 
+  it('builds scheme URL for base64 ESC/POS', () => {
+    expect(buildRawBtSchemeUrl('G0AK')).toBe('rawbt:base64,G0AK');
+  });
+
   it('builds Android intent URL with RawBT package', () => {
     const url = buildRawBtIntentUrl('G0AK');
     expect(url).toContain('intent:rawbt:base64,G0AK');
     expect(url).toContain('package=ru.a402d.rawbtprinter');
+    expect(url).toContain('end;');
+  });
+
+  it('throws RawBtNotInstalledError on Activity Not Found', () => {
+    const error = new Error('Activity not found');
+    expect(isActivityNotFoundError(error)).toBe(true);
   });
 
   it('detects Android user agent', () => {
@@ -195,24 +207,36 @@ describe('RawBtPrinterAdapter', () => {
     await expect(adapter.preview(new Uint8Array([0x1b, 0x40]))).resolves.toBeUndefined();
   });
 
-  it('throws RawBtNotInstalledError when RawBT probe fails', async () => {
-    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'probeRawBtInstalled').mockResolvedValue(false);
-
+  it('connect succeeds on Android without install probe', async () => {
     const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
-    await expect(adapter.connect()).rejects.toBeInstanceOf(RawBtNotInstalledError);
+    await expect(adapter.connect()).resolves.toBeUndefined();
+    expect(adapter.getStatus()).toBe('ready');
   });
 
-  it('dispatches ESC/POS bytes via RawBT bridge when installed', async () => {
+  it('isAvailable reflects Android device only', async () => {
+    const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
+    await expect(adapter.isAvailable()).resolves.toBe(true);
+  });
+
+  it('dispatches ESC/POS bytes via RawBT bridge on print', async () => {
     const dispatch = vi
       .spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint')
-      .mockResolvedValue({ opened: true });
-    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'probeRawBtInstalled').mockResolvedValue(true);
+      .mockImplementation(() => undefined);
 
     const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
     await adapter.connect();
     await adapter.print(new Uint8Array([0x1b, 0x40]));
 
     expect(dispatch).toHaveBeenCalledOnce();
+  });
+
+  it('throws RawBtNotInstalledError when dispatch reports Activity Not Found', async () => {
+    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint').mockImplementation(() => {
+      throw new RawBtNotInstalledError();
+    });
+
+    const adapter = new RawBtPrinterAdapter(BLUEPRINT_BP_ECO58);
+    await expect(adapter.print(new Uint8Array([0x1b, 0x40]))).rejects.toBeInstanceOf(RawBtNotInstalledError);
   });
 });
 
@@ -223,10 +247,9 @@ describe('PrintService', () => {
 
   it('printReceipt always uses ESC/POS renderer', async () => {
     vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'isAndroidDevice').mockReturnValue(true);
-    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'probeRawBtInstalled').mockResolvedValue(true);
-    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint').mockResolvedValue({
-      opened: true,
-    });
+    vi.spyOn(await import('@/features/printing/rawbt/rawbtBridge'), 'dispatchRawBtPrint').mockImplementation(
+      () => undefined,
+    );
 
     const receipt = ReceiptBuilder.build(sampleOrder);
     const service = new PrintService(rawbtConfig);
