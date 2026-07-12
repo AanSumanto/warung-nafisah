@@ -1,12 +1,11 @@
 import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { getEnv } from './config/env.js';
-import { connectDatabase, disconnectDatabase } from './config/database.js';
-import { connectRedis, disconnectRedis } from './config/redis.js';
-import { getPlaceholderQueue, closeQueueConnections } from './config/queue.js';
+import { disconnectDatabase } from './config/database.js';
+import { disconnectRedis } from './config/redis.js';
+import { closeQueueConnections } from './config/queue.js';
 import { logger } from './config/logger.js';
-import { initializePosInfrastructure } from './infrastructure/pos/PosModule.js';
-import { seedPosData } from './infrastructure/auth/seedPosData.js';
+import { bootstrapInfrastructure } from './bootstrap.js';
 
 let server: Server | null = null;
 let shuttingDown = false;
@@ -14,11 +13,7 @@ let shuttingDown = false;
 async function bootstrap(): Promise<void> {
   const env = getEnv();
 
-  await connectDatabase();
-  await initializePosInfrastructure();
-  await seedPosData();
-  await connectRedis();
-  getPlaceholderQueue();
+  await bootstrapInfrastructure();
 
   const app = createApp();
   server = app.listen(env.PORT, env.HOST, () => {

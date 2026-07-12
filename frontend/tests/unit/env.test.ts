@@ -14,6 +14,13 @@ describe('getClientEnv', () => {
     expect(env.NEXT_PUBLIC_APP_NAME).toBe('Warung Nafisah ERP');
   });
 
+  it('allows empty API base URL for same-origin deployment', () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = '';
+    resetClientEnvCache();
+    const env = getClientEnv();
+    expect(env.NEXT_PUBLIC_API_BASE_URL).toBe('');
+  });
+
   it('throws on invalid API URL', () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = 'not-a-url';
     resetClientEnvCache();

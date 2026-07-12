@@ -17,7 +17,9 @@ export function createApiClient() {
   const env = getClientEnv();
 
   return axios.create({
-    baseURL: `${env.NEXT_PUBLIC_API_BASE_URL}/api/v1`,
+    baseURL: env.NEXT_PUBLIC_API_BASE_URL
+      ? `${env.NEXT_PUBLIC_API_BASE_URL}/api/v1`
+      : '/api/v1',
     timeout: 30_000,
     headers: {
       'Content-Type': 'application/json',
