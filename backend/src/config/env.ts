@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { parseCorsOrigins, CorsOriginError } from './cors-origins.js';
 
 dotenv.config();
 
@@ -12,6 +13,19 @@ const redisUrlSchema = z
     (url) => url.startsWith('redis://') || url.startsWith('rediss://'),
     'REDIS_URL must start with redis:// or rediss://',
   );
+
+function validateCorsOrigins(value: string, ctx: z.RefinementCtx): string[] | null {
+  try {
+    return parseCorsOrigins(value);
+  } catch (error) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CORS_ORIGINS'],
+      message: error instanceof CorsOriginError ? error.message : 'Invalid CORS_ORIGINS',
+    });
+    return null;
+  }
+}
 
 const envSchema = z
   .object({
@@ -28,26 +42,38 @@ const envSchema = z
     JWT_SECRET: z.string().min(16).default(DEV_JWT_SECRET),
   })
   .superRefine((data, ctx) => {
+    const origins = validateCorsOrigins(data.CORS_ORIGINS, ctx);
+    if (!origins) return;
+
     if (data.NODE_ENV !== 'production') return;
 
-    if (data.JWT_SECRET === DEV_JWT_SECRET) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['JWT_SECRET'],
-        message: 'JWT_SECRET must be set to a strong random value in production',
-      });
-    }
-
-    const origins = data.CORS_ORIGINS.split(',')
-      .map((o) => o.trim())
-      .filter(Boolean);
-
-    if (origins.some((origin) => /localhost|127\.0\.0\.1/i.test(origin))) {
+    if (origins.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['CORS_ORIGINS'],
-        message: 'CORS_ORIGINS must not include localhost in production',
+        message: 'CORS_ORIGINS must include at least one origin in production',
       });
+      return;
+    }
+
+    for (const origin of origins) {
+      if (/localhost|127\.0\.0\.1/i.test(origin)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['CORS_ORIGINS'],
+          message: 'CORS_ORIGINS must not include localhost in production',
+        });
+        break;
+      }
+
+      if (!origin.startsWith('https://')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['CORS_ORIGINS'],
+          message: 'Production CORS origins must use HTTPS',
+        });
+        break;
+      }
     }
   });
 
@@ -74,8 +100,5 @@ export function resetEnvCache(): void {
 }
 
 export function getCorsOrigins(): string[] {
-  return getEnv()
-    .CORS_ORIGINS.split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
+  return parseCorsOrigins(getEnv().CORS_ORIGINS);
 }

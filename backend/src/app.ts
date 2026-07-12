@@ -7,6 +7,7 @@ import pinoHttpModule from 'pino-http';
 import { getCorsConfig } from './config/cors.js';
 import { logger } from './config/logger.js';
 import { requestContextMiddleware } from './presentation/middleware/request-context.middleware.js';
+import { createCorsOriginGuard } from './presentation/middleware/cors.middleware.js';
 import { errorHandlerMiddleware } from './presentation/middleware/error-handler.middleware.js';
 import { v1Router } from './presentation/routes/v1/index.js';
 import { NotFoundException } from './core/exceptions/BaseException.js';
@@ -19,6 +20,7 @@ export function createApp(): express.Application {
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(compression());
+  app.use(createCorsOriginGuard());
   app.use(cors(getCorsConfig()));
   app.use(
     rateLimit({

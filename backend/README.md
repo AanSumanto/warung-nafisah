@@ -71,7 +71,7 @@ Production `.env` minimum:
 | `MONGODB_DB_NAME` | `warung_nafisah` |
 | `REDIS_URL` | `rediss://...` |
 | `JWT_SECRET` | strong random 64+ chars |
-| `CORS_ORIGINS` | `https://your-app.vercel.app` |
+| `CORS_ORIGINS` | `https://warung-nafisah.vercel.app` (comma-separated, HTTPS only) |
 | `LOG_LEVEL` | `warn` |
 
 ### 4. Start with PM2
@@ -107,6 +107,30 @@ pm2 save
 Logs are written to `backend/logs/pm2-*.log`.
 
 PM2 sends `SIGINT` / `SIGTERM` on stop — the server closes HTTP, BullMQ, Redis, and MongoDB gracefully.
+
+## CORS (production)
+
+Set allowed browser origins via `CORS_ORIGINS` (comma-separated, no spaces required):
+
+```env
+CORS_ORIGINS=https://warung-nafisah.vercel.app
+```
+
+Multiple frontends:
+
+```env
+CORS_ORIGINS=https://warung-nafisah.vercel.app,https://preview-branch.vercel.app
+```
+
+After changing `.env`:
+
+```bash
+npm run pm2:restart
+```
+
+Disallowed origins receive **403** (`CORS_001`), not HTTP 500.
+
+See [CORS configuration](../reports/security/05-cors-configuration.md) for full policy.
 
 ## Health endpoints
 

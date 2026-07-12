@@ -12,6 +12,7 @@ Detailed security architecture will be created during Phase 1.
 | `02-rbac-permission-matrix.md` | Detailed role permissions per endpoint | Phase 1 |
 | `03-jwt-token-flow.md` | Token lifecycle, refresh, revocation | Phase 1 |
 | `04-input-validation-rules.md` | Validation schemas per endpoint | Phase 1 |
+| `05-cors-configuration.md` | CORS allowlist, production setup, troubleshooting | Implemented |
 | `05-audit-log-specification.md` | What gets logged, retention policy | Phase 1 |
 | `06-security-checklist.md` | Pre-production security checklist | Phase 10 |
 
