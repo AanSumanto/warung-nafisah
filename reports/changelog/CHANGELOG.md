@@ -13,6 +13,29 @@ All notable changes to the Warung Nafisah ERP project documentation.
 
 ---
 
+## [0.11.5-hotfix] — 2026-07-13 — Database Bootstrap Idempotent Startup
+
+### Fixed
+
+- Master menu no longer reset on every backend restart
+- Removed destructive `deleteMany` from menu seeder
+- Seed runs once via `system_bootstrap` collection gate
+
+### Added
+
+- `system_bootstrap` collection (`version`, `installedAt`, `seedVersion`)
+- `runDatabaseBootstrap()` with skip logging on subsequent starts
+- Bootstrap idempotency integration test
+
+### Docs
+
+- `reports/implementation/17-database-bootstrap-hotfix.md`
+- `reports/verification/15-database-bootstrap-verification.md`
+- `reports/testing/16-database-bootstrap-test-results.md`
+- `reports/database/04-system-bootstrap.md`
+
+---
+
 ## [0.11.4-hotfix2] — 2026-07-12 — RawBT WRC Error Fix
 
 ### Fixed

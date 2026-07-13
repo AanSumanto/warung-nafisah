@@ -16,7 +16,7 @@ interface SeedMenu {
   readonly bundleItems?: BundleComponent[];
 }
 
-/** Katalog resmi Warung Nafisah — satu-satunya menu yang diizinkan. */
+/** Katalog resmi Warung Nafisah — diinstall sekali saat bootstrap pertama. */
 const DEFAULT_MENUS: SeedMenu[] = [
   {
     _id: 'menu_mnm001',
@@ -156,60 +156,71 @@ const DEFAULT_MENUS: SeedMenu[] = [
   },
 ];
 
-const CATALOG_KODE_MENUS = DEFAULT_MENUS.map((menu) => menu.kodeMenu);
+const DEFAULT_USERS = [
+  {
+    _id: 'user_owner',
+    name: 'Owner Warung',
+    email: 'owner@warungnafisah.local',
+    role: 'owner' as const,
+  },
+  {
+    _id: 'user_kasir',
+    name: 'Kasir Warung',
+    email: 'kasir@warungnafisah.local',
+    role: 'kasir' as const,
+  },
+];
 
-export async function seedPosData(): Promise<void> {
-  await seedUsers();
-  await seedMenus();
+/**
+ * Installs initial users and master menu catalog.
+ * Called only once when `system_bootstrap` record does not exist.
+ */
+export async function installInitialData(): Promise<void> {
+  await seedInitialUsers();
+  await seedInitialMenus();
 }
 
-async function seedUsers(): Promise<void> {
+async function seedInitialUsers(): Promise<void> {
   if (getEnv().NODE_ENV === 'production') {
+    console.log('[Bootstrap] Skipping dev user seed in production.');
     return;
   }
 
   const model = getUserModel();
-  const count = await model.countDocuments();
-  if (count > 0) return;
-
   const now = new Date();
   const passwordHash = await bcrypt.hash('warung123', 10);
 
-  await model.insertMany([
-    {
-      _id: 'user_owner',
-      name: 'Owner Warung',
-      email: 'owner@warungnafisah.local',
-      passwordHash,
-      role: 'owner',
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      _id: 'user_kasir',
-      name: 'Kasir Warung',
-      email: 'kasir@warungnafisah.local',
-      passwordHash,
-      role: 'kasir',
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ]);
+  for (const user of DEFAULT_USERS) {
+    await model.updateOne(
+      { email: user.email },
+      {
+        $setOnInsert: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          passwordHash,
+          role: user.role,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      { upsert: true },
+    );
+  }
 }
 
-async function seedMenus(): Promise<void> {
+async function seedInitialMenus(): Promise<void> {
   const model = getMenuModel();
   const now = new Date();
-
-  await model.deleteMany({ kodeMenu: { $nin: CATALOG_KODE_MENUS } });
 
   for (const menu of DEFAULT_MENUS) {
     await model.updateOne(
       { kodeMenu: menu.kodeMenu },
       {
-        $set: {
+        $setOnInsert: {
+          _id: menu._id,
+          kodeMenu: menu.kodeMenu,
           namaMenu: menu.namaMenu,
           tipeMenu: menu.tipeMenu,
           kodeKategori: menu.kodeKategori,
@@ -218,12 +229,8 @@ async function seedMenus(): Promise<void> {
           sellingTime: menu.sellingTime,
           bundleItems: menu.bundleItems,
           status: 'available',
-          updatedAt: now,
-        },
-        $setOnInsert: {
-          _id: menu._id,
-          kodeMenu: menu.kodeMenu,
           createdAt: now,
+          updatedAt: now,
         },
       },
       { upsert: true },

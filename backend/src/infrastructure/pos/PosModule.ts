@@ -11,6 +11,7 @@ import { getOrderModel } from './documents/OrderDocument.js';
 import { getShiftModel, getOrderSequenceModel } from './documents/ShiftDocument.js';
 import { getOrderItemModel, getPaymentModel } from './documents/OrderItemDocument.js';
 import { getUserModel } from '../auth/documents/UserDocument.js';
+import { getSystemBootstrapModel } from '../database/bootstrap/SystemBootstrapDocument.js';
 import { MongoOrderNumberGenerator } from './MongoOrderNumberGenerator.js';
 import { PaymentWriter } from './PaymentWriter.js';
 import { AuthService } from '../auth/AuthService.js';
@@ -75,6 +76,7 @@ export async function initializePosInfrastructure(): Promise<void> {
     getOrderItemModel(),
     getPaymentModel(),
     getUserModel(),
+    getSystemBootstrapModel(),
   ];
   await Promise.all(
     models.map(async (m) => {

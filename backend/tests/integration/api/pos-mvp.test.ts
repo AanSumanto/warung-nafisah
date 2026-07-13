@@ -7,7 +7,7 @@ import {
 } from '../../helpers/persistence/mongo-memory.js';
 import { loginAndGetToken } from '../../helpers/auth/login.js';
 import { ensureEventCollections } from '../../../src/infrastructure/events/EventPlatformFactory.js';
-import { seedPosData } from '../../../src/infrastructure/auth/seedPosData.js';
+import { runDatabaseBootstrap } from '../../../src/infrastructure/database/bootstrap/runDatabaseBootstrap.js';
 import { getMenuModel } from '../../../src/infrastructure/pos/documents/MenuDocument.js';
 import { getOrderModel } from '../../../src/infrastructure/pos/documents/OrderDocument.js';
 import { getPaymentModel } from '../../../src/infrastructure/pos/documents/OrderItemDocument.js';
@@ -30,7 +30,7 @@ describe('Operational POS MVP Integration', () => {
     await ensureEventCollections();
     const { initializePosInfrastructure } = await import('../../../src/infrastructure/pos/PosModule.js');
     await initializePosInfrastructure();
-    await seedPosData();
+    await runDatabaseBootstrap();
   });
 
   afterAll(async () => {
