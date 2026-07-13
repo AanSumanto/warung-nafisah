@@ -14,6 +14,7 @@ const LF = 0x0a;
 const CMD = {
   init: () => new Uint8Array([ESC, 0x40]),
   alignLeft: () => new Uint8Array([ESC, 0x61, 0]),
+  alignCenter: () => new Uint8Array([ESC, 0x61, 1]),
   feed: (lines = 1) => new Uint8Array(Array(lines).fill(LF)),
   cut: () => new Uint8Array([GS, 0x56, 0]),
 };
@@ -54,24 +55,17 @@ function pushLine(chunks: Uint8Array[], line: ThermalReceiptLine, profile: Print
     return;
   }
 
-  if (line.kind === 'field-block' && line.label && line.value) {
-    chunks.push(textLine(line.label));
-    chunks.push(textLine(line.value));
+  if (line.kind === 'row' && line.left && line.right) {
+    chunks.push(textLine(formatThermalRow(line.left, line.right, width)));
     return;
   }
 
-  if (line.kind === 'amount-block' && line.label && line.value) {
-    chunks.push(textLine(line.label));
-    chunks.push(textLine(line.value));
-    return;
+  if (line.align === 'center') {
+    chunks.push(CMD.alignCenter());
   }
 
-  let content = line.text ?? '';
-  if (line.kind === 'item-subtotal') {
-    content = formatThermalRow('', line.text ?? '', width).trim();
-  }
-
-  chunks.push(textLine(content));
+  chunks.push(textLine(line.text ?? ''));
+  chunks.push(CMD.alignLeft());
 }
 
 /**

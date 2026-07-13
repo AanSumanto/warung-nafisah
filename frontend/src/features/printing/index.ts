@@ -14,7 +14,7 @@ export type { PrinterProfile, PrinterProtocol, PrinterConnection } from './profi
 export { BLUEPRINT_BP_ECO58, getPrinterProfile } from './profiles/printerProfile';
 export { RawBtNotInstalledError, isRawBtNotInstalledError } from './types/printer';
 export { ReceiptBuilder } from './receipt/ReceiptBuilder';
-export { formatReceiptMoney, formatReceiptDate, formatReceiptDateThermal } from './receipt/formatMoney';
+export { formatReceiptMoney, formatReceiptDate, formatReceiptDateTimeCompact, formatReceiptOrderShort, formatReceiptDiningCompact, formatReceiptFooterCompact } from './receipt/formatMoney';
 export { buildReceiptPreviewLines } from './renderers/receiptPreviewLayout';
 export { buildReceiptThermalLines, formatThermalRow } from './renderers/receiptThermalLayout';
 export { PreviewRenderer } from './renderers/PreviewRenderer';

@@ -22,19 +22,6 @@ function PreviewLine({ line }: { readonly line: PreviewReceiptLine }) {
     );
   }
 
-  if (line.kind === 'field-block' && line.label && line.value) {
-    return (
-      <Box sx={{ my: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
-          {line.label}
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          {line.value}
-        </Typography>
-      </Box>
-    );
-  }
-
   if (line.kind === 'row' && line.left && line.right) {
     const isBold = line.weight === 'bold' || line.size === 'lg';
     return (

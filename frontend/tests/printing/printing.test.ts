@@ -71,21 +71,44 @@ describe('ReceiptBuilder', () => {
 });
 
 describe('preview layout', () => {
-  it('renders field blocks for preview UI', () => {
+  it('renders compact metadata and item rows', () => {
     const receipt = ReceiptBuilder.build(sampleOrder);
     const lines = buildReceiptPreviewLines(receipt);
-    const noField = lines.find((line) => line.kind === 'field-block' && line.label === 'No');
-    expect(noField?.value).toBe('WN-20260712-000001');
+    const meta = lines.find((line) => line.kind === 'text' && line.text?.includes('#000001'));
+    expect(meta?.text).toMatch(/#000001/);
+    expect(meta?.text).toMatch(/\d{2}\/\d{2}\/\d{2}/);
+    const itemRow = lines.find((line) => line.kind === 'row' && line.left?.includes('Lele'));
+    expect(itemRow?.right).toBe('11.000');
   });
 });
 
 describe('thermal layout', () => {
-  it('uses stacked label/value fields for thermal printer', () => {
+  it('uses compact two-line metadata instead of stacked fields', () => {
     const receipt = ReceiptBuilder.build(sampleOrder);
     const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
-    const tanggal = lines.find((line) => line.kind === 'field-block' && line.label === 'Tanggal');
-    expect(tanggal?.value).toMatch(/2026/);
-    expect(tanggal?.value).not.toMatch(/Pukul/);
+    const fieldBlock = lines.find((line) => line.kind === 'text' && line.text?.startsWith('Tanggal'));
+    expect(fieldBlock).toBeUndefined();
+    const meta = lines.find((line) => line.kind === 'text' && line.text?.includes('#000001'));
+    expect(meta?.text).toMatch(/#000001/);
+    const context = lines.find((line) => line.kind === 'text' && line.text?.includes('Kasir Warung'));
+    expect(context?.text).toContain('Ditempat');
+  });
+
+  it('uses one row per item and hides zero discount', () => {
+    const receipt = ReceiptBuilder.build(sampleOrder);
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    const itemRows = lines.filter((line) => line.kind === 'row' && line.left?.includes('x '));
+    expect(itemRows).toHaveLength(2);
+    const diskon = lines.find((line) => line.kind === 'row' && line.left === 'Diskon');
+    expect(diskon).toBeUndefined();
+    const subtotal = lines.find((line) => line.kind === 'row' && line.left === 'Subtotal');
+    expect(subtotal).toBeDefined();
+  });
+
+  it('uses fewer lines than legacy stacked layout', () => {
+    const receipt = ReceiptBuilder.build(sampleOrder);
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    expect(lines.length).toBeLessThanOrEqual(18);
   });
 
   it('uses heavy separators for header and footer', () => {
@@ -135,7 +158,9 @@ describe('EscPosRenderer', () => {
       .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
       .join('');
     expect(decoded).toContain('WARUNG NAFISAH');
-    expect(decoded).toContain('WN-20260712-000001');
+    expect(decoded).toContain('#000001');
+    expect(decoded).toContain('TOTAL');
+    expect(decoded).toContain('Bayar');
     expect(decoded).not.toContain('<div');
   });
 });
