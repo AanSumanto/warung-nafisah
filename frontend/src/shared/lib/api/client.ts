@@ -2,6 +2,10 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from '@/features/auth/constants';
 import { getClientEnv } from '../env';
 
+export function isApiNotFound(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
+}
+
 export interface ApiErrorBody {
   readonly success: false;
   readonly error: {

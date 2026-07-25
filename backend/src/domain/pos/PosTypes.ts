@@ -1,15 +1,16 @@
 export const MENU_TYPES = ['ITEM', 'BUNDLE'] as const;
 export type MenuType = (typeof MENU_TYPES)[number];
 
-export const MENU_CATEGORY_CODES = ['PECEL', 'MODEL', 'MINUMAN', 'ADDON', 'SIDE'] as const;
+export const MENU_CATEGORY_CODES = ['MODEL', 'PECEL', 'MINUMAN', 'SIDE', 'RINGAN', 'ADDON'] as const;
 export type MenuCategoryCode = (typeof MENU_CATEGORY_CODES)[number];
 
 export const CATEGORY_LABELS: Record<MenuCategoryCode, string> = {
-  PECEL: 'Pecel Lele',
   MODEL: 'Model Gandum',
+  PECEL: 'Pecel Lele',
   MINUMAN: 'Minuman',
-  ADDON: 'Add On',
   SIDE: 'Sayuran',
+  RINGAN: 'Makanan Ringan',
+  ADDON: 'Add On',
 };
 
 export type MenuStatus = 'available' | 'sold_out' | 'hidden';

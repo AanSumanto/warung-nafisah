@@ -9,7 +9,7 @@ interface SeedMenu {
   readonly kodeMenu: string;
   readonly namaMenu: string;
   readonly tipeMenu: 'ITEM' | 'BUNDLE';
-  readonly kodeKategori: 'PECEL' | 'MODEL' | 'MINUMAN' | 'ADDON' | 'SIDE';
+  readonly kodeKategori: 'PECEL' | 'MODEL' | 'MINUMAN' | 'ADDON' | 'SIDE' | 'RINGAN';
   readonly namaKategori: string;
   readonly hargaJual: number;
   readonly sellingTime?: string;
@@ -141,18 +141,37 @@ const DEFAULT_MENUS: SeedMenu[] = [
     kodeMenu: 'MNM003',
     namaMenu: 'Srikaya',
     tipeMenu: 'ITEM',
-    kodeKategori: 'MINUMAN',
-    namaKategori: 'Minuman',
+    kodeKategori: 'RINGAN',
+    namaKategori: 'Makanan Ringan',
     hargaJual: 2_000,
   },
   {
     _id: 'menu_add001',
     kodeMenu: 'ADD001',
-    namaMenu: 'Pempek Ikan',
+    namaMenu: 'Pempek',
     tipeMenu: 'ITEM',
-    kodeKategori: 'ADDON',
-    namaKategori: 'Add On',
+    kodeKategori: 'RINGAN',
+    namaKategori: 'Makanan Ringan',
     hargaJual: 1_000,
+  },
+];
+
+const MENU_CATALOG_PATCHES: Array<{
+  readonly kodeMenu: string;
+  readonly kodeKategori: SeedMenu['kodeKategori'];
+  readonly namaKategori: string;
+  readonly namaMenu?: string;
+}> = [
+  {
+    kodeMenu: 'MNM003',
+    kodeKategori: 'RINGAN',
+    namaKategori: 'Makanan Ringan',
+  },
+  {
+    kodeMenu: 'ADD001',
+    kodeKategori: 'RINGAN',
+    namaKategori: 'Makanan Ringan',
+    namaMenu: 'Pempek',
   },
 ];
 
@@ -178,6 +197,25 @@ const DEFAULT_USERS = [
 export async function installInitialData(): Promise<void> {
   await seedInitialUsers();
   await seedInitialMenus();
+  await applyMenuCatalogPatches();
+}
+
+/** Idempotent catalog fixes for databases that already completed bootstrap. */
+export async function applyMenuCatalogPatches(): Promise<void> {
+  const model = getMenuModel();
+  const now = new Date();
+
+  for (const patch of MENU_CATALOG_PATCHES) {
+    const $set: Record<string, unknown> = {
+      kodeKategori: patch.kodeKategori,
+      namaKategori: patch.namaKategori,
+      updatedAt: now,
+    };
+    if (patch.namaMenu) {
+      $set.namaMenu = patch.namaMenu;
+    }
+    await model.updateOne({ kodeMenu: patch.kodeMenu }, { $set });
+  }
 }
 
 async function seedInitialUsers(): Promise<void> {

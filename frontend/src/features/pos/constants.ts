@@ -24,22 +24,25 @@ export const QUICK_NOTE_OPTIONS = [
   'Nasi tambahan',
 ] as const;
 
-export const MENU_CATEGORY_CODES = ['PECEL', 'MODEL', 'MINUMAN', 'ADDON', 'SIDE'] as const;
+/** Urutan tampilan kasir: Model → Pecel Lele → Minuman → Sayur → Makanan Ringan */
+export const MENU_CATEGORY_CODES = ['MODEL', 'PECEL', 'MINUMAN', 'SIDE', 'RINGAN', 'ADDON'] as const;
 
 export const CATEGORY_LABELS: Record<(typeof MENU_CATEGORY_CODES)[number], string> = {
-  PECEL: 'Pecel Lele',
   MODEL: 'Model Gandum',
+  PECEL: 'Pecel Lele',
   MINUMAN: 'Minuman',
-  ADDON: 'Add On',
   SIDE: 'Sayuran',
+  RINGAN: 'Makanan Ringan',
+  ADDON: 'Add On',
 };
 
 export const CATEGORY_SHORT_LABELS: Record<(typeof MENU_CATEGORY_CODES)[number], string> = {
-  PECEL: 'Pecel',
   MODEL: 'Model',
+  PECEL: 'Pecel',
   MINUMAN: 'Minuman',
-  ADDON: 'Addon',
   SIDE: 'Sayur',
+  RINGAN: 'Ringan',
+  ADDON: 'Addon',
 };
 
 export const MENU_EMOJI: Record<string, string> = {
@@ -59,11 +62,12 @@ export const MENU_EMOJI: Record<string, string> = {
 };
 
 export const CATEGORY_EMOJI: Record<(typeof MENU_CATEGORY_CODES)[number], string> = {
-  PECEL: '🐟',
   MODEL: '🍚',
+  PECEL: '🐟',
   MINUMAN: '🥤',
-  ADDON: '➕',
   SIDE: '🥬',
+  RINGAN: '🍿',
+  ADDON: '➕',
 };
 
 export function getMenuEmoji(kodeMenu: string, kodeKategori: string): string {

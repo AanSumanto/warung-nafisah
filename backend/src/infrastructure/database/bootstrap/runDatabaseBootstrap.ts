@@ -1,4 +1,4 @@
-import { installInitialData } from '../../auth/seedPosData.js';
+import { applyMenuCatalogPatches, installInitialData } from '../../auth/seedPosData.js';
 import {
   BOOTSTRAP_DOC_ID,
   BOOTSTRAP_VERSION,
@@ -21,6 +21,7 @@ async function ensureSystemBootstrapCollection(): Promise<void> {
  */
 export async function runDatabaseBootstrap(): Promise<void> {
   await ensureSystemBootstrapCollection();
+  await applyMenuCatalogPatches();
 
   const model = getSystemBootstrapModel();
   const existing = await model.findById(BOOTSTRAP_DOC_ID).lean();

@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import { useRouter } from 'next/navigation';
 import { AppCard, AppTable } from '@/shared/components/ui';
 import { useSnackbar } from '@/shared/hooks';
+import { isApiNotFound } from '@/shared/lib/api';
 import { usePermission } from '@/shared/providers';
 import {
   CATEGORY_SHORT_LABELS,
@@ -68,7 +69,13 @@ export default function OwnerMenusPage() {
           enqueueSnackbar(`Harga ${editing.namaMenu} diperbarui`, { variant: 'success' });
           setEditing(null);
         },
-        onError: () => {
+        onError: (error) => {
+          if (isApiNotFound(error)) {
+            enqueueSnackbar('Server API belum di-update — deploy backend terbaru untuk edit harga', {
+              variant: 'warning',
+            });
+            return;
+          }
           enqueueSnackbar('Gagal memperbarui harga', { variant: 'error' });
         },
       },

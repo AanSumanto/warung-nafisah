@@ -17,6 +17,7 @@ import {
   useOwnerDashboardMonth,
 } from '@/features/pos';
 import { usePermission } from '@/shared/providers';
+import { isApiNotFound } from '@/shared/lib/api';
 
 function StatCard({ label, value }: { readonly label: string; readonly value: string }) {
   return (
@@ -82,7 +83,8 @@ export default function OwnerDashboardPage() {
   const [year, setYear] = useState(now.getFullYear());
 
   const { data: today, isLoading: todayLoading, isError: todayError } = useOwnerDashboard();
-  const { data: monthly, isLoading: monthLoading, isError: monthError } = useOwnerDashboardMonth(year, month);
+  const { data: monthly, isLoading: monthLoading, isError: monthError, error: monthQueryError } =
+    useOwnerDashboardMonth(year, month);
 
   useEffect(() => {
     if (!hasRole('owner')) {
@@ -169,7 +171,19 @@ export default function OwnerDashboardPage() {
         {monthLoading ? (
           <DashboardSkeleton />
         ) : monthError || !monthly ? (
-          <EmptyState emoji="⚠️" title="Gagal memuat rekap bulanan" description="Periksa koneksi lalu coba lagi." />
+          <EmptyState
+            emoji="⚠️"
+            title={
+              isApiNotFound(monthQueryError)
+                ? 'Rekap bulanan belum tersedia di server'
+                : 'Gagal memuat rekap bulanan'
+            }
+            description={
+              isApiNotFound(monthQueryError)
+                ? 'Frontend sudah terbaru, tetapi API di VPS belum di-update. Deploy ulang backend (npm run deploy:pm2 di server) lalu refresh halaman ini.'
+                : 'Periksa koneksi lalu coba lagi.'
+            }
+          />
         ) : (
           <DashboardCards {...monthly} />
         )}

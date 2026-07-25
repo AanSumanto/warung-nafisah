@@ -1,2 +1,2 @@
-export { apiClient, createApiClient, ensureApiInterceptors } from './client';
+export { apiClient, createApiClient, ensureApiInterceptors, isApiNotFound } from './client';
 export type { ApiErrorBody } from './client';

@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/lib/api';
+import { apiClient, isApiNotFound } from '@/shared/lib/api';
 import type { ApiSuccessResponse } from '@/types/api';
 import type {
   CloseShiftRequest,
@@ -26,7 +26,15 @@ export async function fetchMenus(): Promise<Menu[]> {
 }
 
 export async function fetchManageMenus(): Promise<Menu[]> {
-  return unwrap(apiClient.get<ApiSuccessResponse<Menu[]>>('/menus/manage'));
+  try {
+    return unwrap(apiClient.get<ApiSuccessResponse<Menu[]>>('/menus/manage'));
+  } catch (error) {
+    // Older production API builds only expose GET /menus (same catalog for owner).
+    if (isApiNotFound(error)) {
+      return fetchMenus();
+    }
+    throw error;
+  }
 }
 
 export async function updateMenuPrice(kodeMenu: string, body: UpdateMenuPriceRequest): Promise<Menu> {
