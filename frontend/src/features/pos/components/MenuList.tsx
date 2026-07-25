@@ -111,7 +111,6 @@ export function MenuList({ menus, activeCategory, searchQuery, onAddMenu }: Menu
       {groups.map(({ category, items }) => (
         <Accordion
           key={category}
-          defaultExpanded
           disableGutters
           elevation={0}
           sx={{
