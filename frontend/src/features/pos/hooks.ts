@@ -6,13 +6,16 @@ import {
   createOrder,
   fetchCurrentShift,
   fetchMenus,
+  fetchManageMenus,
   fetchOrder,
   fetchOwnerDashboardToday,
+  fetchOwnerDashboardMonth,
   fetchTodayOrders,
   openShift,
   payOrder,
   posQueryKeys,
   updateOrderItems,
+  updateMenuPrice,
 } from './api';
 import type {
   CloseShiftRequest,
@@ -26,6 +29,26 @@ export function useMenus() {
   return useQuery({
     queryKey: posQueryKeys.menus(),
     queryFn: fetchMenus,
+  });
+}
+
+export function useManageMenus() {
+  return useQuery({
+    queryKey: posQueryKeys.manageMenus(),
+    queryFn: fetchManageMenus,
+  });
+}
+
+export function useUpdateMenuPrice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ kodeMenu, hargaJual }: { kodeMenu: string; hargaJual: number }) =>
+      updateMenuPrice(kodeMenu, { hargaJual }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: posQueryKeys.menus() });
+      void queryClient.invalidateQueries({ queryKey: posQueryKeys.manageMenus() });
+    },
   });
 }
 
@@ -58,6 +81,13 @@ export function useOwnerDashboard() {
   });
 }
 
+export function useOwnerDashboardMonth(year: number, month: number) {
+  return useQuery({
+    queryKey: posQueryKeys.ownerDashboardMonth(year, month),
+    queryFn: () => fetchOwnerDashboardMonth(year, month),
+  });
+}
+
 export function useCreateOrder() {
   const queryClient = useQueryClient();
 
@@ -84,6 +114,7 @@ export function usePayOrder() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: posQueryKeys.todayOrders() });
       void queryClient.invalidateQueries({ queryKey: posQueryKeys.ownerDashboard() });
+      void queryClient.invalidateQueries({ queryKey: ['pos', 'ownerDashboardMonth'] });
     },
   });
 }

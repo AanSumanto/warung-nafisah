@@ -47,6 +47,15 @@ const closeShiftSchema = z.object({
   closingCash: z.number().int().nonnegative(),
 });
 
+const updateMenuPriceSchema = z.object({
+  hargaJual: z.number().int().positive().max(100_000_000),
+});
+
+const dashboardMonthQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100),
+  month: z.coerce.number().int().min(1).max(12),
+});
+
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -135,6 +144,26 @@ export function createPosRouter(posService: PosService, authService: AuthService
     try {
       const menus = await posService.listMenus();
       return ResponseWrapper.success(res, menus.map(mapMenu));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/menus/manage', auth, requireRole('owner'), async (_req, res, next) => {
+    try {
+      const menus = await posService.listMenusForManagement();
+      return ResponseWrapper.success(res, menus.map(mapMenu));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/menus/:kodeMenu', auth, requireRole('owner'), async (req, res, next) => {
+    try {
+      const parsed = updateMenuPriceSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationException('Harga jual tidak valid');
+      const menu = await posService.updateMenuHarga(param(req.params.kodeMenu), parsed.data.hargaJual);
+      return ResponseWrapper.success(res, mapMenu(menu));
     } catch (error) {
       next(error);
     }
@@ -268,6 +297,21 @@ export function createPosRouter(posService: PosService, authService: AuthService
     try {
       const dashboard = await posService.getOwnerDashboardToday();
       return ResponseWrapper.success(res, dashboard);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/owner/dashboard/month', auth, requireRole('owner'), async (req, res, next) => {
+    try {
+      const parsed = dashboardMonthQuerySchema.safeParse(req.query);
+      if (!parsed.success) throw new ValidationException('Periode tidak valid');
+      const dashboard = await posService.getOwnerDashboardMonth(parsed.data.year, parsed.data.month);
+      return ResponseWrapper.success(res, {
+        ...dashboard,
+        year: parsed.data.year,
+        month: parsed.data.month,
+      });
     } catch (error) {
       next(error);
     }

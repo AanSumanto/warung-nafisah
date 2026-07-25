@@ -85,6 +85,15 @@ export interface DashboardStats {
   };
 }
 
+export interface MonthlyDashboardStats extends DashboardStats {
+  readonly year: number;
+  readonly month: number;
+}
+
+export interface UpdateMenuPriceRequest {
+  readonly hargaJual: number;
+}
+
 export interface CartLine {
   readonly kodeMenu: string;
   readonly namaMenu: string;

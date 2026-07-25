@@ -152,6 +152,45 @@ describe('Operational POS MVP Integration', () => {
     expect(res.status).toBe(401);
   });
 
+  it('lists menus for owner management and updates harga jual', async () => {
+    const listRes = await request(app)
+      .get('/api/v1/menus/manage')
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.length).toBeGreaterThan(0);
+
+    const patchRes = await request(app)
+      .patch(`/api/v1/menus/${kodeMenu}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ hargaJual: 12_500 });
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.data.hargaJual).toBe(12_500);
+
+    const kasirList = await request(app).get('/api/v1/menus').set('Authorization', `Bearer ${kasirToken}`);
+    const updated = kasirList.body.data.find((m: { kodeMenu: string }) => m.kodeMenu === kodeMenu);
+    expect(updated?.hargaJual).toBe(12_500);
+
+    await request(app)
+      .patch(`/api/v1/menus/${kodeMenu}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ hargaJual: 11_000 });
+  });
+
+  it('returns owner dashboard for calendar month', async () => {
+    const now = new Date();
+    const res = await request(app)
+      .get('/api/v1/owner/dashboard/month')
+      .query({ year: now.getFullYear(), month: now.getMonth() + 1 })
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      transactionCount: expect.any(Number),
+      revenue: expect.any(Number),
+    });
+  });
+
   it('changes password for authenticated kasir', async () => {
     const changeRes = await request(app)
       .post('/api/v1/auth/change-password')

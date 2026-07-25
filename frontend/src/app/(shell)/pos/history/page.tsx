@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid2';
 import IconButton from '@mui/material/IconButton';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
+import TableFooter from '@mui/material/TableFooter';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
@@ -23,9 +25,35 @@ import {
   type Order,
 } from '@/features/pos';
 
+function SummaryCard({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <Box
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+        {label}
+      </Typography>
+      <Typography variant="h6" fontWeight={900} color="primary.main">
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 export default function PosHistoryPage() {
   const { data: orders = [], isLoading, isError } = useTodayOrders();
   const [reprintOrder, setReprintOrder] = useState<Order | null>(null);
+
+  const { totalOmset, transactionCount } = useMemo(() => {
+    const totalOmset = orders.reduce((sum, order) => sum + order.total, 0);
+    return { totalOmset, transactionCount: orders.length };
+  }, [orders]);
 
   return (
     <Box>
@@ -35,6 +63,17 @@ export default function PosHistoryPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Semua pesanan yang sudah dibayar hari ini.
       </Typography>
+
+      {!isLoading && !isError && orders.length > 0 ? (
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <SummaryCard label="Transaksi" value={String(transactionCount)} />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 8 }}>
+            <SummaryCard label="Total Omset Hari Ini" value={formatIdr(totalOmset)} />
+          </Grid>
+        </Grid>
+      ) : null}
 
       <ReceiptPreviewSheet
         open={Boolean(reprintOrder)}
@@ -98,6 +137,19 @@ export default function PosHistoryPage() {
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Typography fontWeight={800}>Total</Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography fontWeight={900} color="primary.main">
+                    {formatIdr(totalOmset)}
+                  </Typography>
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
           </AppTable>
         )}
       </AppCard>

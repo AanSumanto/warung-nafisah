@@ -5,6 +5,7 @@ import type {
   CreateOrderRequest,
   DashboardStats,
   Menu,
+  MonthlyDashboardStats,
   OpenShiftRequest,
   Order,
   PayOrderRequest,
@@ -12,6 +13,7 @@ import type {
   ShiftCurrent,
   ShiftOpen,
   UpdateOrderItemsRequest,
+  UpdateMenuPriceRequest,
 } from './types';
 
 async function unwrap<T>(promise: Promise<{ data: ApiSuccessResponse<T> }>): Promise<T> {
@@ -21,6 +23,14 @@ async function unwrap<T>(promise: Promise<{ data: ApiSuccessResponse<T> }>): Pro
 
 export async function fetchMenus(): Promise<Menu[]> {
   return unwrap(apiClient.get<ApiSuccessResponse<Menu[]>>('/menus'));
+}
+
+export async function fetchManageMenus(): Promise<Menu[]> {
+  return unwrap(apiClient.get<ApiSuccessResponse<Menu[]>>('/menus/manage'));
+}
+
+export async function updateMenuPrice(kodeMenu: string, body: UpdateMenuPriceRequest): Promise<Menu> {
+  return unwrap(apiClient.patch<ApiSuccessResponse<Menu>>(`/menus/${encodeURIComponent(kodeMenu)}`, body));
 }
 
 export async function createOrder(body: CreateOrderRequest): Promise<Order> {
@@ -59,11 +69,22 @@ export async function fetchOwnerDashboardToday(): Promise<DashboardStats> {
   return unwrap(apiClient.get<ApiSuccessResponse<DashboardStats>>('/owner/dashboard/today'));
 }
 
+export async function fetchOwnerDashboardMonth(year: number, month: number): Promise<MonthlyDashboardStats> {
+  return unwrap(
+    apiClient.get<ApiSuccessResponse<MonthlyDashboardStats>>('/owner/dashboard/month', {
+      params: { year, month },
+    }),
+  );
+}
+
 export const posQueryKeys = {
   all: ['pos'] as const,
   menus: () => [...posQueryKeys.all, 'menus'] as const,
+  manageMenus: () => [...posQueryKeys.all, 'menus', 'manage'] as const,
   todayOrders: () => [...posQueryKeys.all, 'orders', 'today'] as const,
   order: (id: string) => [...posQueryKeys.all, 'orders', id] as const,
   currentShift: () => [...posQueryKeys.all, 'shifts', 'current'] as const,
   ownerDashboard: () => [...posQueryKeys.all, 'owner', 'dashboard', 'today'] as const,
+  ownerDashboardMonth: (year: number, month: number) =>
+    [...posQueryKeys.all, 'owner', 'dashboard', 'month', year, month] as const,
 };

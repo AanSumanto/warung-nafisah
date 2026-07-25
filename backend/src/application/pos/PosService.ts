@@ -67,12 +67,52 @@ function endOfToday(): Date {
   return d;
 }
 
+function startOfMonth(year: number, month: number): Date {
+  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+}
+
+function endOfMonth(year: number, month: number): Date {
+  return new Date(year, month, 0, 23, 59, 59, 999);
+}
+
+async function aggregateDashboard(paidAtFilter: { $gte: Date; $lte: Date }) {
+  const orders = await getOrderModel().find({ status: 'paid', paidAt: paidAtFilter }).lean();
+  const payments = await getPaymentModel().find({ paidAt: paidAtFilter }).lean();
+
+  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const byMethod = {
+    cash: payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0),
+    qris: payments.filter((p) => p.method === 'qris').reduce((s, p) => s + p.amount, 0),
+    transfer: payments.filter((p) => p.method === 'transfer').reduce((s, p) => s + p.amount, 0),
+  };
+
+  return {
+    transactionCount: orders.length,
+    revenue: totalRevenue,
+    paymentBreakdown: byMethod,
+  };
+}
+
 export class PosService {
   constructor(private readonly deps: PosServiceDeps) {}
 
   async listMenus(): Promise<Menu[]> {
     const menus = await this.deps.menuRepository.findAll();
     return menus.filter((menu) => menu.status !== 'hidden');
+  }
+
+  async listMenusForManagement(): Promise<Menu[]> {
+    const menus = await this.deps.menuRepository.findAll();
+    return menus
+      .filter((menu) => menu.status !== 'hidden')
+      .sort((a, b) => a.kodeMenu.localeCompare(b.kodeMenu));
+  }
+
+  async updateMenuHarga(kodeMenu: string, hargaJual: number): Promise<Menu> {
+    const menu = await this.findMenuByKode(kodeMenu);
+    if (!menu) throw new NotFoundException('Menu tidak ditemukan');
+    const updated = menu.update({ hargaJual });
+    return this.deps.menuRepository.save(updated);
   }
 
   async createDraftOrder(input: {
@@ -253,21 +293,16 @@ export class PosService {
   }
 
   async getOwnerDashboardToday() {
-    const paidAtFilter = { $gte: startOfToday(), $lte: endOfToday() };
-    const orders = await getOrderModel().find({ status: 'paid', paidAt: paidAtFilter }).lean();
-    const payments = await getPaymentModel().find({ paidAt: paidAtFilter }).lean();
+    return aggregateDashboard({ $gte: startOfToday(), $lte: endOfToday() });
+  }
 
-    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
-    const byMethod = {
-      cash: payments.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0),
-      qris: payments.filter((p) => p.method === 'qris').reduce((s, p) => s + p.amount, 0),
-      transfer: payments.filter((p) => p.method === 'transfer').reduce((s, p) => s + p.amount, 0),
-    };
-
-    return {
-      transactionCount: orders.length,
-      revenue: totalRevenue,
-      paymentBreakdown: byMethod,
-    };
+  async getOwnerDashboardMonth(year: number, month: number) {
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      throw new ValidationException('Tahun tidak valid');
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      throw new ValidationException('Bulan tidak valid');
+    }
+    return aggregateDashboard({ $gte: startOfMonth(year, month), $lte: endOfMonth(year, month) });
   }
 }

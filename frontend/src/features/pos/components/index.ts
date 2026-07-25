@@ -5,6 +5,7 @@ export { EmptyState } from './EmptyState';
 export { FloatingCartBar } from './FloatingCartBar';
 export { MenuCard } from './MenuCard';
 export { MenuGrid } from './MenuGrid';
+export { MenuList } from './MenuList';
 export { MenuSearchBar } from './MenuSearchBar';
 export { NumericPad } from './NumericPad';
 export { DashboardSkeleton, HistoryTableSkeleton, MenuGridSkeleton } from './PosSkeleton';

@@ -1,5 +1,6 @@
 'use client';
 
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import HistoryIcon from '@mui/icons-material/History';
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Riwayat', href: '/pos/history', icon: <HistoryIcon /> },
   { label: 'Shift', href: '/shift', icon: <WorkOutlineIcon /> },
   { label: 'Ringkasan', href: '/owner', icon: <DashboardIcon />, ownerOnly: true },
+  { label: 'Menu', href: '/owner/menus', icon: <RestaurantMenuIcon />, ownerOnly: true },
 ];
 
 function SidebarContent({ onNavigate }: { readonly onNavigate?: () => void }) {

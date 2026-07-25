@@ -12,16 +12,14 @@ import {
   CategoryChips,
   CloseShiftDialog,
   EmptyState,
-  FavoriteMenuRow,
   FloatingCartBar,
   formatIdr,
-  MenuGrid,
+  MenuList,
   MenuGridSkeleton,
   MenuSearchBar,
   OpenShiftDialog,
   PaymentBottomSheet,
   ReceiptPreviewSheet,
-  resolveFavoriteMenus,
   useCreateOrder,
   useCurrentShift,
   useMenus,
@@ -129,8 +127,6 @@ export default function PosPage() {
   const createOrderMutation = useCreateOrder();
   const updateItemsMutation = useUpdateOrderItems();
   const payOrderMutation = usePayOrder();
-
-  const favoriteMenus = useMemo(() => resolveFavoriteMenus(menus), [menus]);
 
   const paying =
     createOrderMutation.isPending || updateItemsMutation.isPending || payOrderMutation.isPending;
@@ -293,8 +289,7 @@ export default function PosPage() {
           >
             <MenuSearchBar value={searchQuery} onChange={setSearchQuery} />
             <CategoryChips activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-            <FavoriteMenuRow menus={favoriteMenus} onAdd={cartState.addMenu} />
-            <MenuGrid
+            <MenuList
               menus={menus}
               activeCategory={activeCategory}
               searchQuery={searchQuery}
