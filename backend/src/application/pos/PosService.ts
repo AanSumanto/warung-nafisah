@@ -4,7 +4,8 @@ import { Order } from '../../domain/pos/Order.js';
 import { OrderItem } from '../../domain/pos/OrderItem.js';
 import { Menu } from '../../domain/pos/Menu.js';
 import { Shift } from '../../domain/pos/Shift.js';
-import type { DiningType, PaymentMethod, UserRole } from '../../domain/pos/PosTypes.js';
+import type { DiningType, PaymentMethod, UserRole, MenuCategoryCode, MenuType } from '../../domain/pos/PosTypes.js';
+import { CATEGORY_LABELS } from '../../domain/pos/PosTypes.js';
 import type { MongoUnitOfWork } from '../../infrastructure/persistence/MongoUnitOfWork.js';
 import type { MongoOrderNumberGenerator } from '../../infrastructure/pos/MongoOrderNumberGenerator.js';
 import type { PaymentWriter } from '../../infrastructure/pos/PaymentWriter.js';
@@ -113,6 +114,33 @@ export class PosService {
     if (!menu) throw new NotFoundException('Menu tidak ditemukan');
     const updated = menu.update({ hargaJual });
     return this.deps.menuRepository.save(updated);
+  }
+
+  async createMenu(input: {
+    kodeMenu: string;
+    namaMenu: string;
+    kodeKategori: MenuCategoryCode;
+    hargaJual: number;
+    tipeMenu?: MenuType;
+    sellingTime?: string;
+  }): Promise<Menu> {
+    const existing = await this.findMenuByKode(input.kodeMenu);
+    if (existing) {
+      throw new ValidationException('Kode menu sudah digunakan');
+    }
+
+    const menu = Menu.create(crypto.randomUUID(), {
+      kodeMenu: input.kodeMenu,
+      namaMenu: input.namaMenu,
+      tipeMenu: input.tipeMenu ?? 'ITEM',
+      kodeKategori: input.kodeKategori,
+      namaKategori: CATEGORY_LABELS[input.kodeKategori],
+      hargaJual: input.hargaJual,
+      status: 'available',
+      sellingTime: input.sellingTime,
+    });
+
+    return this.deps.menuRepository.save(menu);
   }
 
   async createDraftOrder(input: {

@@ -176,6 +176,42 @@ describe('Operational POS MVP Integration', () => {
       .send({ hargaJual: 11_000 });
   });
 
+  it('creates a new menu for owner', async () => {
+    const createRes = await request(app)
+      .post('/api/v1/menus')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        kodeMenu: 'TST001',
+        namaMenu: 'Menu Uji',
+        kodeKategori: 'RINGAN',
+        hargaJual: 7_500,
+      });
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.data).toMatchObject({
+      kodeMenu: 'TST001',
+      namaMenu: 'Menu Uji',
+      kodeKategori: 'RINGAN',
+      hargaJual: 7_500,
+      status: 'available',
+    });
+
+    const kasirList = await request(app).get('/api/v1/menus').set('Authorization', `Bearer ${kasirToken}`);
+    expect(kasirList.body.data.some((m: { kodeMenu: string }) => m.kodeMenu === 'TST001')).toBe(true);
+
+    const duplicateRes = await request(app)
+      .post('/api/v1/menus')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        kodeMenu: 'TST001',
+        namaMenu: 'Duplikat',
+        kodeKategori: 'MINUMAN',
+        hargaJual: 5_000,
+      });
+    expect(duplicateRes.status).toBe(400);
+
+    await getMenuModel().deleteOne({ kodeMenu: 'TST001' });
+  });
+
   it('returns owner dashboard for calendar month', async () => {
     const now = new Date();
     const res = await request(app)

@@ -16,9 +16,11 @@ import {
   posQueryKeys,
   updateOrderItems,
   updateMenuPrice,
+  createMenu,
 } from './api';
 import type {
   CloseShiftRequest,
+  CreateMenuRequest,
   CreateOrderRequest,
   OpenShiftRequest,
   PayOrderRequest,
@@ -45,6 +47,18 @@ export function useUpdateMenuPrice() {
   return useMutation({
     mutationFn: ({ kodeMenu, hargaJual }: { kodeMenu: string; hargaJual: number }) =>
       updateMenuPrice(kodeMenu, { hargaJual }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: posQueryKeys.menus() });
+      void queryClient.invalidateQueries({ queryKey: posQueryKeys.manageMenus() });
+    },
+  });
+}
+
+export function useCreateMenu() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: CreateMenuRequest) => createMenu(body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: posQueryKeys.menus() });
       void queryClient.invalidateQueries({ queryKey: posQueryKeys.manageMenus() });

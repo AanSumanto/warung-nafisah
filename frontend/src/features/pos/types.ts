@@ -94,6 +94,15 @@ export interface UpdateMenuPriceRequest {
   readonly hargaJual: number;
 }
 
+export interface CreateMenuRequest {
+  readonly kodeMenu: string;
+  readonly namaMenu: string;
+  readonly kodeKategori: MenuCategoryCode;
+  readonly hargaJual: number;
+  readonly tipeMenu?: MenuType;
+  readonly sellingTime?: string;
+}
+
 export interface CartLine {
   readonly kodeMenu: string;
   readonly namaMenu: string;

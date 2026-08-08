@@ -28,6 +28,7 @@ export {
 } from './favorites';
 export {
   closeShift,
+  createMenu,
   createOrder,
   fetchCurrentShift,
   fetchManageMenus,
@@ -44,6 +45,7 @@ export {
 } from './api';
 export {
   useCloseShift,
+  useCreateMenu,
   useCreateOrder,
   useCurrentShift,
   useManageMenus,
@@ -104,4 +106,5 @@ export type {
   ShiftStatus,
   UpdateOrderItemsRequest,
   UpdateMenuPriceRequest,
+  CreateMenuRequest,
 } from './types';

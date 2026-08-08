@@ -5,6 +5,7 @@ import { getEnv } from '../../../config/env.js';
 import { ResponseWrapper } from '../../../core/http/ResponseWrapper.js';
 import { ValidationException } from '../../../core/exceptions/BaseException.js';
 import type { PosService } from '../../../application/pos/PosService.js';
+import { MENU_CATEGORY_CODES, MENU_TYPES } from '../../../domain/pos/PosTypes.js';
 import type { AuthService } from '../../../infrastructure/auth/AuthService.js';
 import { createAuthMiddleware, requireRole } from '../../middleware/auth.middleware.js';
 
@@ -49,6 +50,15 @@ const closeShiftSchema = z.object({
 
 const updateMenuPriceSchema = z.object({
   hargaJual: z.number().int().positive().max(100_000_000),
+});
+
+const createMenuSchema = z.object({
+  kodeMenu: z.string().trim().min(1).max(32),
+  namaMenu: z.string().trim().min(1).max(120),
+  kodeKategori: z.enum(MENU_CATEGORY_CODES),
+  hargaJual: z.number().int().positive().max(100_000_000),
+  tipeMenu: z.enum(MENU_TYPES).optional(),
+  sellingTime: z.string().trim().max(50).optional(),
 });
 
 const dashboardMonthQuerySchema = z.object({
@@ -153,6 +163,17 @@ export function createPosRouter(posService: PosService, authService: AuthService
     try {
       const menus = await posService.listMenusForManagement();
       return ResponseWrapper.success(res, menus.map(mapMenu));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/menus', auth, requireRole('owner'), async (req, res, next) => {
+    try {
+      const parsed = createMenuSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationException('Data menu tidak valid');
+      const menu = await posService.createMenu(parsed.data);
+      return ResponseWrapper.success(res, mapMenu(menu), 201);
     } catch (error) {
       next(error);
     }

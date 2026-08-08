@@ -14,6 +14,7 @@ import type {
   ShiftOpen,
   UpdateOrderItemsRequest,
   UpdateMenuPriceRequest,
+  CreateMenuRequest,
 } from './types';
 
 async function unwrap<T>(promise: Promise<{ data: ApiSuccessResponse<T> }>): Promise<T> {
@@ -39,6 +40,10 @@ export async function fetchManageMenus(): Promise<Menu[]> {
 
 export async function updateMenuPrice(kodeMenu: string, body: UpdateMenuPriceRequest): Promise<Menu> {
   return unwrap(apiClient.patch<ApiSuccessResponse<Menu>>(`/menus/${encodeURIComponent(kodeMenu)}`, body));
+}
+
+export async function createMenu(body: CreateMenuRequest): Promise<Menu> {
+  return unwrap(apiClient.post<ApiSuccessResponse<Menu>>('/menus', body));
 }
 
 export async function createOrder(body: CreateOrderRequest): Promise<Order> {
