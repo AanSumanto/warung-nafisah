@@ -22,7 +22,7 @@ export class MenuMapper extends BaseMongoMapper<Menu, MenuDocument> {
 
   toDomain(document: MenuDocument): Menu {
     return Menu.reconstitute(
-      document._id,
+      this.documentId(document),
       {
         kodeMenu: document.kodeMenu,
         namaMenu: document.namaMenu,

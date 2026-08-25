@@ -1,4 +1,5 @@
 import { BaseMongoMapper } from '../../persistence/mappers/MongoMapper.js';
+import { normalizeMongoId } from '../../persistence/normalizeMongoId.js';
 import { Order } from '../../../domain/pos/Order.js';
 import { OrderItem } from '../../../domain/pos/OrderItem.js';
 import type { OrderDocument } from '../documents/OrderDocument.js';
@@ -38,7 +39,7 @@ export class OrderMapper extends BaseMongoMapper<Order, OrderDocument> {
 
   toDomain(document: OrderDocument): Order {
     return Order.reconstitute(
-      document._id,
+      this.documentId(document),
       {
         orderNumber: document.orderNumber,
         status: document.status,
@@ -48,7 +49,7 @@ export class OrderMapper extends BaseMongoMapper<Order, OrderDocument> {
         shiftId: document.shiftId,
         items: document.items.map(
           (item) =>
-            new OrderItem(item._id, {
+            new OrderItem(normalizeMongoId(item._id), {
               kodeMenu: item.kodeMenu,
               namaMenu: item.namaMenu,
               kodeKategori: item.kodeKategori,

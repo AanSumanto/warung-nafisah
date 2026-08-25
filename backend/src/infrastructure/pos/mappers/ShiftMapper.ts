@@ -20,7 +20,7 @@ export class ShiftMapper extends BaseMongoMapper<Shift, ShiftDocument> {
 
   toDomain(document: ShiftDocument): Shift {
     return Shift.reconstitute(
-      document._id,
+      this.documentId(document),
       {
         cashierId: document.cashierId,
         cashierName: document.cashierName,

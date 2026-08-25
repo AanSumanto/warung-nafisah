@@ -5,6 +5,7 @@ import type { MongoMapper } from '../mappers/MongoMapper.js';
 import type { BaseDocument, SoftDeleteDocument } from '../documents/BaseDocument.js';
 import type { MongoRepositoryOptions } from './MongoReadRepository.js';
 import type { MongoTransaction } from '../../database/MongoTransactionManager.js';
+import { normalizeMongoId } from '../normalizeMongoId.js';
 
 export class MongoWriteRepository<
   TEntity,
@@ -22,7 +23,7 @@ export class MongoWriteRepository<
   async save(entity: TEntity): Promise<TEntity> {
     const document = this.mapper.toDocument(entity);
     const session = this.getActiveSession?.() ?? null;
-    const id = (document as BaseDocument)._id;
+    const id = normalizeMongoId((document as BaseDocument)._id);
 
     const updated = await this.model
       .findByIdAndUpdate(id, document as Record<string, unknown>, {
