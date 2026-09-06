@@ -1,9 +1,6 @@
-import { applyMenuCatalogPatches, installInitialData } from '../../auth/seedPosData.js';
-import {
-  BOOTSTRAP_DOC_ID,
-  BOOTSTRAP_VERSION,
-  SEED_VERSION,
-} from './bootstrapConstants.js';
+import { installInitialData } from '../../auth/seedPosData.js';
+import { insertBootstrapRecord } from './insertBootstrapRecord.js';
+import { BOOTSTRAP_DOC_ID, BOOTSTRAP_VERSION, SEED_VERSION } from './bootstrapConstants.js';
 import { getSystemBootstrapModel } from './SystemBootstrapDocument.js';
 
 async function ensureSystemBootstrapCollection(): Promise<void> {
@@ -13,7 +10,7 @@ async function ensureSystemBootstrapCollection(): Promise<void> {
   } catch {
     // already exists
   }
-  await model.syncIndexes();
+  await model.createIndexes();
 }
 
 /**
@@ -21,7 +18,6 @@ async function ensureSystemBootstrapCollection(): Promise<void> {
  */
 export async function runDatabaseBootstrap(): Promise<void> {
   await ensureSystemBootstrapCollection();
-  await applyMenuCatalogPatches();
 
   const model = getSystemBootstrapModel();
   const existing = await model.findById(BOOTSTRAP_DOC_ID).lean();
@@ -38,12 +34,16 @@ export async function runDatabaseBootstrap(): Promise<void> {
   await installInitialData();
 
   const installedAt = new Date();
-  await model.create({
-    _id: BOOTSTRAP_DOC_ID,
-    version: BOOTSTRAP_VERSION,
-    seedVersion: SEED_VERSION,
-    installedAt,
-  });
+  await insertBootstrapRecord(
+    model,
+    { _id: BOOTSTRAP_DOC_ID },
+    {
+      _id: BOOTSTRAP_DOC_ID,
+      version: BOOTSTRAP_VERSION,
+      seedVersion: SEED_VERSION,
+      installedAt,
+    },
+  );
 
   console.log(
     `[Bootstrap] Initial data installed. Bootstrap record created (version=${BOOTSTRAP_VERSION}, seedVersion=${SEED_VERSION}).`,

@@ -85,7 +85,7 @@ export async function initializePosInfrastructure(): Promise<void> {
       } catch {
         // already exists
       }
-      await m.syncIndexes();
+      await m.createIndexes();
     }),
   );
 }

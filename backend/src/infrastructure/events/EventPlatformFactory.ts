@@ -87,7 +87,7 @@ export async function ensureEventCollections(): Promise<void> {
       } catch {
         // Collection already exists.
       }
-      await eventModel.syncIndexes();
+      await eventModel.createIndexes();
     }),
   );
 }

@@ -3,6 +3,7 @@ import { getEnv } from '../../config/env.js';
 import { getMenuModel } from '../pos/documents/MenuDocument.js';
 import { getUserModel } from './documents/UserDocument.js';
 import type { BundleComponent } from '../../domain/pos/PosTypes.js';
+import { insertBootstrapRecord } from '../database/bootstrap/insertBootstrapRecord.js';
 
 interface SeedMenu {
   readonly _id: string;
@@ -156,25 +157,6 @@ const DEFAULT_MENUS: SeedMenu[] = [
   },
 ];
 
-const MENU_CATALOG_PATCHES: Array<{
-  readonly kodeMenu: string;
-  readonly kodeKategori: SeedMenu['kodeKategori'];
-  readonly namaKategori: string;
-  readonly namaMenu?: string;
-}> = [
-  {
-    kodeMenu: 'MNM003',
-    kodeKategori: 'RINGAN',
-    namaKategori: 'Makanan Ringan',
-  },
-  {
-    kodeMenu: 'ADD001',
-    kodeKategori: 'RINGAN',
-    namaKategori: 'Makanan Ringan',
-    namaMenu: 'Pempek',
-  },
-];
-
 const DEFAULT_USERS = [
   {
     _id: 'user_owner',
@@ -197,25 +179,6 @@ const DEFAULT_USERS = [
 export async function installInitialData(): Promise<void> {
   await seedInitialUsers();
   await seedInitialMenus();
-  await applyMenuCatalogPatches();
-}
-
-/** Idempotent catalog fixes for databases that already completed bootstrap. */
-export async function applyMenuCatalogPatches(): Promise<void> {
-  const model = getMenuModel();
-  const now = new Date();
-
-  for (const patch of MENU_CATALOG_PATCHES) {
-    const $set: Record<string, unknown> = {
-      kodeKategori: patch.kodeKategori,
-      namaKategori: patch.namaKategori,
-      updatedAt: now,
-    };
-    if (patch.namaMenu) {
-      $set.namaMenu = patch.namaMenu;
-    }
-    await model.updateOne({ kodeMenu: patch.kodeMenu }, { $set });
-  }
 }
 
 async function seedInitialUsers(): Promise<void> {
@@ -229,21 +192,19 @@ async function seedInitialUsers(): Promise<void> {
   const passwordHash = await bcrypt.hash('warung123', 10);
 
   for (const user of DEFAULT_USERS) {
-    await model.updateOne(
+    await insertBootstrapRecord(
+      model,
       { email: user.email },
       {
-        $setOnInsert: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          passwordHash,
-          role: user.role,
-          isActive: true,
-          createdAt: now,
-          updatedAt: now,
-        },
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        passwordHash,
+        role: user.role,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
       },
-      { upsert: true },
     );
   }
 }
@@ -253,25 +214,23 @@ async function seedInitialMenus(): Promise<void> {
   const now = new Date();
 
   for (const menu of DEFAULT_MENUS) {
-    await model.updateOne(
+    await insertBootstrapRecord(
+      model,
       { kodeMenu: menu.kodeMenu },
       {
-        $setOnInsert: {
-          _id: menu._id,
-          kodeMenu: menu.kodeMenu,
-          namaMenu: menu.namaMenu,
-          tipeMenu: menu.tipeMenu,
-          kodeKategori: menu.kodeKategori,
-          namaKategori: menu.namaKategori,
-          hargaJual: menu.hargaJual,
-          sellingTime: menu.sellingTime,
-          bundleItems: menu.bundleItems,
-          status: 'available',
-          createdAt: now,
-          updatedAt: now,
-        },
+        _id: menu._id,
+        kodeMenu: menu.kodeMenu,
+        namaMenu: menu.namaMenu,
+        tipeMenu: menu.tipeMenu,
+        kodeKategori: menu.kodeKategori,
+        namaKategori: menu.namaKategori,
+        hargaJual: menu.hargaJual,
+        sellingTime: menu.sellingTime,
+        bundleItems: menu.bundleItems,
+        status: 'available',
+        createdAt: now,
+        updatedAt: now,
       },
-      { upsert: true },
     );
   }
 }
