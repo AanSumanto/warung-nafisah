@@ -17,6 +17,17 @@ import { FilterObject } from '../common/Filter.js';
 import { getOrderModel } from '../../infrastructure/pos/documents/OrderDocument.js';
 import { getPaymentModel } from '../../infrastructure/pos/documents/OrderItemDocument.js';
 import { createIdentifier } from '../../domain/common/Identifier.js';
+import { DomainError } from '../../domain/errors/DomainError.js';
+import type { ICustomerRepository } from '../../domain/loyalty/ICustomerRepository.js';
+import type { ILoyaltyProgramRepository } from '../../domain/loyalty/ILoyaltyProgramRepository.js';
+import { LOYALTY_PROGRAM_CODE } from '../../domain/loyalty/LoyaltyTypes.js';
+import type { LoyaltyEarnService } from '../loyalty/LoyaltyEarnService.js';
+import { deriveEligiblePaidAmount } from './deriveEligiblePaidAmount.js';
+import {
+  loyaltyNoMember,
+  loyaltySkipped,
+  type LoyaltyPayResult,
+} from './LoyaltyPayResult.js';
 
 export interface CartItemInput {
   kodeMenu: string;
@@ -27,6 +38,11 @@ export interface CartItemInput {
 export interface RequesterContext {
   readonly sub: string;
   readonly role: UserRole;
+}
+
+export interface PayOrderResult {
+  readonly order: Order;
+  readonly loyalty: LoyaltyPayResult;
 }
 
 function assertOrderAccess(order: Order, requester: RequesterContext): void {
@@ -43,6 +59,19 @@ function assertShiftAccess(shift: Shift, requester: RequesterContext): void {
   }
 }
 
+function mapDomainError(error: unknown): never {
+  if (error instanceof DomainError) {
+    throw new ValidationException(error.message, error.field ? { field: error.field } : undefined);
+  }
+  throw error;
+}
+
+export interface PosLoyaltyDeps {
+  loyaltyEarnService: LoyaltyEarnService;
+  customerRepository: ICustomerRepository;
+  programRepository: ILoyaltyProgramRepository;
+}
+
 export interface PosServiceDeps {
   unitOfWork: MongoUnitOfWork;
   menuRepository: IRepository<Menu>;
@@ -54,6 +83,8 @@ export interface PosServiceDeps {
   outboxDispatcher: OutboxDispatcher;
   eventStore: IEventStore;
   outbox: IOutboxRepository;
+  /** Optional until wired — without loyalty, pay skips earn. */
+  loyalty?: PosLoyaltyDeps;
 }
 
 function startOfToday(): Date {
@@ -91,6 +122,22 @@ async function aggregateDashboard(paidAtFilter: { $gte: Date; $lte: Date }) {
     transactionCount: orders.length,
     revenue: totalRevenue,
     paymentBreakdown: byMethod,
+  };
+}
+
+function orderCustomerFields(doc: {
+  customerId?: string | null;
+  customerSnapshot?: { customerId: string; phoneMasked: string; name?: string } | null;
+}) {
+  return {
+    customerId: doc.customerId ?? undefined,
+    customerSnapshot: doc.customerSnapshot
+      ? {
+          customerId: doc.customerSnapshot.customerId,
+          phoneMasked: doc.customerSnapshot.phoneMasked,
+          name: doc.customerSnapshot.name,
+        }
+      : undefined,
   };
 }
 
@@ -210,14 +257,70 @@ export class PosService {
     return this.deps.orderRepository.save(updated);
   }
 
+  async attachOrderCustomer(
+    orderId: string,
+    customerId: string,
+    requester: RequesterContext,
+  ): Promise<Order> {
+    const loyalty = this.requireLoyalty();
+    const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
+    if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
+    if (order.status !== 'draft') {
+      throw new ValidationException('Member hanya dapat diubah pada order draft', {
+        code: 'ORDER_NOT_DRAFT',
+      });
+    }
+
+    const customer = await loyalty.customerRepository.findById(createIdentifier(customerId.trim()));
+    if (!customer) {
+      throw new NotFoundException('Pelanggan tidak ditemukan', {
+        code: 'LOYALTY_CUSTOMER_NOT_FOUND',
+      });
+    }
+    if (customer.status === 'blocked') {
+      throw new ValidationException('Pelanggan diblokir; tidak dapat dilampirkan', {
+        code: 'LOYALTY_CUSTOMER_BLOCKED',
+      });
+    }
+
+    try {
+      const updated = order.attachCustomer({
+        customerId: customer.id,
+        phoneMasked: customer.phoneMasked,
+        name: customer.name,
+      });
+      return await this.deps.orderRepository.save(updated);
+    } catch (error) {
+      mapDomainError(error);
+    }
+  }
+
+  async clearOrderCustomer(orderId: string, requester: RequesterContext): Promise<Order> {
+    const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
+    if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
+    if (order.status !== 'draft') {
+      throw new ValidationException('Member hanya dapat diubah pada order draft', {
+        code: 'ORDER_NOT_DRAFT',
+      });
+    }
+    try {
+      const updated = order.clearCustomer();
+      return await this.deps.orderRepository.save(updated);
+    } catch (error) {
+      mapDomainError(error);
+    }
+  }
+
   async payOrder(input: {
     orderId: string;
     paymentMethod: PaymentMethod;
     paidAmount?: number;
     correlationId?: string;
     requester: RequesterContext;
-  }): Promise<Order> {
-    const paidOrder = await this.deps.unitOfWork.execute(async () => {
+  }): Promise<PayOrderResult> {
+    const result = await this.deps.unitOfWork.execute(async () => {
       const session = this.deps.unitOfWork.getActiveSession();
       const order = await this.deps.orderRepository.findById(createIdentifier(input.orderId));
       if (!order) throw new NotFoundException('Order tidak ditemukan');
@@ -229,15 +332,92 @@ export class PosService {
       await this.deps.orderRepository.save(paid);
       await this.deps.paymentWriter.persistPaidOrder(paid, input.paymentMethod, session);
 
+      const loyalty = await this.applyLoyaltyEarnInActiveSession(paid);
+
       for (const event of paid.clearDomainEvents()) {
         await this.deps.eventPublisher.publish(event, session);
       }
 
-      return paid;
+      return { order: paid, loyalty };
     });
 
     await this.deps.outboxDispatcher.dispatchPending();
-    return paidOrder;
+    return result;
+  }
+
+  /**
+   * Loyalty orchestration inside an active pay UoW session.
+   * Non-fatal skips never throw LOYALTY_PROGRAM_DISABLED into payment.
+   * Fatal earn failures propagate and abort the whole payment transaction.
+   */
+  private async applyLoyaltyEarnInActiveSession(paid: Order): Promise<LoyaltyPayResult> {
+    const snapshot = paid.customerSnapshot;
+    const customerId = paid.customerId;
+
+    if (!customerId || !snapshot) {
+      return loyaltyNoMember();
+    }
+
+    const loyalty = this.deps.loyalty;
+    if (!loyalty) {
+      return loyaltySkipped('PROGRAM_DISABLED', snapshot);
+    }
+
+    const program = await loyalty.programRepository.findByProgramCode(LOYALTY_PROGRAM_CODE);
+    if (!program || !program.enabled) {
+      return loyaltySkipped('PROGRAM_DISABLED', snapshot);
+    }
+
+    const customer = await loyalty.customerRepository.findById(createIdentifier(customerId));
+    if (!customer) {
+      return loyaltySkipped('CUSTOMER_NOT_FOUND', snapshot);
+    }
+    if (customer.status === 'blocked') {
+      return loyaltySkipped('CUSTOMER_BLOCKED', snapshot);
+    }
+
+    let eligiblePaidAmount: number;
+    try {
+      eligiblePaidAmount = deriveEligiblePaidAmount(paid);
+    } catch {
+      throw new ValidationException('Total order tidak valid untuk loyalty', {
+        code: 'LOYALTY_INVALID_ELIGIBLE_AMOUNT',
+      });
+    }
+
+    const earn = await loyalty.loyaltyEarnService.earn({
+      customerId,
+      orderId: String(paid.id),
+      eligiblePaidAmount,
+      occurredAt: paid.paidAt ?? new Date(),
+      actorUserId: paid.cashierId,
+      paymentId: `pay_${paid.id}`,
+    });
+
+    return {
+      memberAttached: true,
+      awarded: true,
+      customerId: earn.customerId,
+      phoneMasked: snapshot.phoneMasked,
+      name: snapshot.name,
+      pointsEarned: earn.pointsEarned,
+      balanceAfter: earn.balanceAfter,
+      eligiblePaidAmount: earn.eligiblePaidAmount,
+      programCode: earn.programCode,
+      programVersion: earn.programVersion,
+      pointEarnRate: earn.pointEarnRate,
+      ledgerEntryId: earn.ledgerEntryId,
+      alreadyProcessed: earn.alreadyProcessed,
+    };
+  }
+
+  private requireLoyalty(): PosLoyaltyDeps {
+    if (!this.deps.loyalty) {
+      throw new ValidationException('Loyalty belum dikonfigurasi', {
+        code: 'LOYALTY_NOT_CONFIGURED',
+      });
+    }
+    return this.deps.loyalty;
   }
 
   async getOrder(orderId: string, requester: RequesterContext): Promise<Order> {
@@ -286,6 +466,7 @@ export class PosService {
           paidAmount: doc.paidAmount,
           changeAmount: doc.changeAmount,
           paidAt: doc.paidAt,
+          ...orderCustomerFields(doc),
         },
         doc.createdAt,
         doc.updatedAt,

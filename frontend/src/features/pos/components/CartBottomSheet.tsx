@@ -15,6 +15,7 @@ import { AppButton } from '@/shared/components/ui';
 import { BOTTOM_NAV_HEIGHT } from '@/shared/theme/breakpoints';
 import { DINING_TYPE_LABELS, formatIdr, QUICK_NOTE_OPTIONS } from '../constants';
 import type { CartLine, DiningType } from '../types';
+import type { ReactNode } from 'react';
 import { EmptyState } from './EmptyState';
 
 interface CartBottomSheetProps {
@@ -24,6 +25,7 @@ interface CartBottomSheetProps {
   readonly total: number;
   readonly disabled?: boolean;
   readonly paying?: boolean;
+  readonly memberSlot?: ReactNode;
   readonly onClose: () => void;
   readonly onDiningTypeChange: (type: DiningType) => void;
   readonly onIncrement: (kodeMenu: string) => void;
@@ -42,6 +44,7 @@ export function CartBottomSheet({
   total,
   disabled = false,
   paying = false,
+  memberSlot,
   onClose,
   onDiningTypeChange,
   onIncrement,
@@ -173,6 +176,8 @@ export function CartBottomSheet({
             </Box>
           )}
         </Box>
+
+        {memberSlot ? <Box sx={{ mb: 2 }}>{memberSlot}</Box> : null}
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6" fontWeight={700}>

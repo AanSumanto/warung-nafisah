@@ -51,6 +51,8 @@ export class MongoTransactionManager {
     if (!transaction.isActive) return;
     try {
       await transaction.session.abortTransaction();
+    } catch {
+      // Transaction may already be aborted (e.g. unique-index conflict inside txn).
     } finally {
       transaction.markRolledBack();
       await this.sessionManager.endSession(transaction.sessionKey);

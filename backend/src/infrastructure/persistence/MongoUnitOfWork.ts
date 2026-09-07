@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ITransaction } from '../../core/persistence/ITransaction.js';
 import { BaseUnitOfWork } from '../../core/persistence/IUnitOfWork.js';
 import {
@@ -6,9 +7,15 @@ import {
 } from '../database/MongoTransactionManager.js';
 import { MongoSessionManager } from '../database/MongoSessionManager.js';
 
+/**
+ * Per-async-context active transaction.
+ * A single MongoUnitOfWork instance is shared across concurrent requests;
+ * mutable instance fields would cross-wire sessions under concurrency.
+ */
+const activeTxnStorage = new AsyncLocalStorage<MongoTransaction>();
+
 export class MongoUnitOfWork extends BaseUnitOfWork {
   private readonly transactionManager: MongoTransactionManager;
-  private activeTransaction: MongoTransaction | null = null;
 
   constructor(sessionManager = new MongoSessionManager()) {
     super();
@@ -16,26 +23,21 @@ export class MongoUnitOfWork extends BaseUnitOfWork {
   }
 
   async begin(): Promise<ITransaction> {
-    this.activeTransaction = await this.transactionManager.begin();
-    return this.activeTransaction;
+    const txn = await this.transactionManager.begin();
+    activeTxnStorage.enterWith(txn);
+    return txn;
   }
 
   async commit(transaction: ITransaction): Promise<void> {
     await this.transactionManager.commit(transaction as MongoTransaction);
-    if (this.activeTransaction?.id === transaction.id) {
-      this.activeTransaction = null;
-    }
   }
 
   async rollback(transaction: ITransaction): Promise<void> {
     await this.transactionManager.rollback(transaction as MongoTransaction);
-    if (this.activeTransaction?.id === transaction.id) {
-      this.activeTransaction = null;
-    }
   }
 
   getActiveSession() {
-    return this.activeTransaction?.session ?? null;
+    return activeTxnStorage.getStore()?.session ?? null;
   }
 
   getTransactionManager(): MongoTransactionManager {
@@ -43,13 +45,8 @@ export class MongoUnitOfWork extends BaseUnitOfWork {
   }
 
   override async execute<T>(work: (transaction: ITransaction) => Promise<T>): Promise<T> {
-    return this.transactionManager.execute(async (txn) => {
-      this.activeTransaction = txn;
-      try {
-        return await work(txn);
-      } finally {
-        this.activeTransaction = null;
-      }
-    });
+    return this.transactionManager.execute(async (txn) =>
+      activeTxnStorage.run(txn, () => work(txn)),
+    );
   }
 }

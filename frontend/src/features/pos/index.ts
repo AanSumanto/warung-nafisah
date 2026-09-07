@@ -76,6 +76,8 @@ export {
   MenuSearchBar,
   NumericPad,
   OpenShiftDialog,
+  MemberLookupSheet,
+  MemberSection,
   PaymentBottomSheet,
   ReceiptPreviewSheet,
   ReceiptPrint,
@@ -108,3 +110,15 @@ export type {
   UpdateMenuPriceRequest,
   CreateMenuRequest,
 } from './types';
+export type {
+  CustomerSummary,
+  LoyaltyPayResult,
+  PosMemberSelection,
+} from './loyaltyTypes';
+export {
+  attachOrderCustomer,
+  fetchLoyaltyPosUi,
+  lookupCustomerByPhone,
+  registerCustomer,
+  loyaltyPosQueryKeys,
+} from './loyaltyApi';

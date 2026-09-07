@@ -80,14 +80,14 @@ describe('Database Bootstrap', () => {
           .sort({ _id: 1 })
           .toArray(),
       ).toEqual(before);
-      expect(await getMenuModel().countDocuments()).toBe(13);
+      expect(await getMenuModel().countDocuments()).toBe(14);
       expect(await getUserModel().countDocuments()).toBe(0);
     }
   });
 
   it('allows concurrent first boots and preserves the winning records and marker', async () => {
     await Promise.all([bootstrapInfrastructure(), bootstrapInfrastructure()]);
-    expect(await getMenuModel().countDocuments()).toBe(13);
+    expect(await getMenuModel().countDocuments()).toBe(14);
     expect(await getUserModel().countDocuments()).toBe(2);
     expect(await getSystemBootstrapModel().countDocuments()).toBe(1);
     const before = await getMenuModel().find().sort({ kodeMenu: 1 }).lean();
@@ -141,7 +141,7 @@ describe('Database Bootstrap', () => {
     expect(bootstrap?.installedAt).toBeInstanceOf(Date);
 
     const menuCountAfterFirst = await getMenuModel().countDocuments();
-    expect(menuCountAfterFirst).toBe(13);
+    expect(menuCountAfterFirst).toBe(14);
 
     const userCountAfterFirst = await getUserModel().countDocuments();
     expect(userCountAfterFirst).toBe(2);
@@ -178,6 +178,6 @@ describe('Database Bootstrap', () => {
     expect(customMenu).toBeDefined();
 
     const menuCountAfterRestart = await getMenuModel().countDocuments();
-    expect(menuCountAfterRestart).toBe(14);
+    expect(menuCountAfterRestart).toBe(15);
   });
 });

@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { AppButton } from '@/shared/components/ui';
 import { DINING_TYPE_LABELS, formatIdr, QUICK_NOTE_OPTIONS } from '../constants';
 import type { CartLine, DiningType } from '../types';
+import type { ReactNode } from 'react';
 
 interface CartPanelProps {
   readonly cart: readonly CartLine[];
@@ -19,6 +20,7 @@ interface CartPanelProps {
   readonly total: number;
   readonly disabled?: boolean;
   readonly paying?: boolean;
+  readonly memberSlot?: ReactNode;
   readonly onDiningTypeChange: (type: DiningType) => void;
   readonly onIncrement: (kodeMenu: string) => void;
   readonly onDecrement: (kodeMenu: string) => void;
@@ -34,6 +36,7 @@ export function CartPanel({
   total,
   disabled = false,
   paying = false,
+  memberSlot,
   onDiningTypeChange,
   onIncrement,
   onDecrement,
@@ -156,6 +159,7 @@ export function CartPanel({
       </Box>
 
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.default' }}>
+        {memberSlot ? <Box sx={{ mb: 2 }}>{memberSlot}</Box> : null}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="subtitle1" fontWeight={600}>
             Total

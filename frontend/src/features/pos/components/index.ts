@@ -3,6 +3,8 @@ export { CartPanel } from './CartPanel';
 export { CategoryChips, FavoriteMenuRow } from './CategoryChips';
 export { EmptyState } from './EmptyState';
 export { FloatingCartBar } from './FloatingCartBar';
+export { MemberLookupSheet } from './MemberLookupSheet';
+export { MemberSection } from './MemberSection';
 export { MenuCard } from './MenuCard';
 export { MenuGrid } from './MenuGrid';
 export { MenuList } from './MenuList';

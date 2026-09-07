@@ -40,6 +40,15 @@ const envSchema = z
       .default('info'),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
     JWT_SECRET: z.string().min(16).default(DEV_JWT_SECRET),
+    /**
+     * Technical rollout gate for cashier member UI / attach exposure.
+     * Not business earn config — program.enabled remains DB authority for points.
+     * Default false so production cashiers keep current POS until deliberately enabled.
+     */
+    LOYALTY_POS_UI_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
   })
   .superRefine((data, ctx) => {
     const origins = validateCorsOrigins(data.CORS_ORIGINS, ctx);

@@ -11,6 +11,13 @@ export interface PaymentTender {
   readonly paidAmount: number;
 }
 
+/** Immutable member identity captured at attachment / sale time. No raw phone. */
+export interface OrderCustomerSnapshot {
+  readonly customerId: string;
+  readonly phoneMasked: string;
+  readonly name?: string;
+}
+
 export interface OrderRecord {
   orderNumber: string;
   status: OrderStatus;
@@ -23,6 +30,9 @@ export interface OrderRecord {
   paidAmount?: number;
   changeAmount?: number;
   paidAt?: Date;
+  /** Optional LOYALTY-04 member link — absent on historical / non-member orders. */
+  customerId?: string;
+  customerSnapshot?: OrderCustomerSnapshot;
 }
 
 export class Order extends AggregateRoot {
@@ -116,6 +126,14 @@ export class Order extends AggregateRoot {
     return this.orderRecord.changeAmount;
   }
 
+  get customerId(): string | undefined {
+    return this.orderRecord.customerId;
+  }
+
+  get customerSnapshot(): OrderCustomerSnapshot | undefined {
+    return this.orderRecord.customerSnapshot;
+  }
+
   get total(): number {
     return this.orderRecord.items.reduce((sum, item) => sum + item.subtotal, 0);
   }
@@ -131,6 +149,46 @@ export class Order extends AggregateRoot {
     return new Order(
       this.id,
       { ...this.orderRecord, items: [...items] },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  /**
+   * Attach or replace member on a draft order. Snapshot is immutable at sale time.
+   */
+  attachCustomer(snapshot: OrderCustomerSnapshot): Order {
+    this.assertDraft();
+    if (!snapshot.customerId?.trim()) {
+      throw DomainError.invalidArgument('customerId is required', 'customerId');
+    }
+    if (!snapshot.phoneMasked?.trim()) {
+      throw DomainError.invalidArgument('phoneMasked is required', 'phoneMasked');
+    }
+    const customerId = snapshot.customerId.trim();
+    return new Order(
+      this.id,
+      {
+        ...this.orderRecord,
+        customerId,
+        customerSnapshot: {
+          customerId,
+          phoneMasked: snapshot.phoneMasked.trim(),
+          name: snapshot.name?.trim() || undefined,
+        },
+      },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  /** Remove member from a draft order (Tanpa Member / Lewati). */
+  clearCustomer(): Order {
+    this.assertDraft();
+    const { customerId: _c, customerSnapshot: _s, ...rest } = this.orderRecord;
+    return new Order(
+      this.id,
+      { ...rest, items: [...this.orderRecord.items] },
       this.createdAt,
       new Date(),
     );
@@ -184,6 +242,12 @@ export class Order extends AggregateRoot {
           shiftId: this.shiftId,
           paidAt: paidAt.toISOString(),
           items: this.orderRecord.items.map((item) => item.toJSON()),
+          ...(this.customerId
+            ? {
+                customerId: this.customerId,
+                phoneMasked: this.customerSnapshot?.phoneMasked,
+              }
+            : {}),
         },
         metadata: {
           correlationId,
@@ -209,6 +273,9 @@ export class Order extends AggregateRoot {
     return {
       ...this.orderRecord,
       items: [...this.orderRecord.items],
+      customerSnapshot: this.orderRecord.customerSnapshot
+        ? { ...this.orderRecord.customerSnapshot }
+        : undefined,
     };
   }
 }

@@ -15,8 +15,9 @@ import { getSystemBootstrapModel } from '../database/bootstrap/SystemBootstrapDo
 import { MongoOrderNumberGenerator } from './MongoOrderNumberGenerator.js';
 import { PaymentWriter } from './PaymentWriter.js';
 import { AuthService } from '../auth/AuthService.js';
-import { PosService } from '../../application/pos/PosService.js';
+import { PosService, type PosLoyaltyDeps } from '../../application/pos/PosService.js';
 import { getEnv } from '../../config/env.js';
+import { initializeLoyaltyInfrastructure } from '../loyalty/LoyaltyModule.js';
 
 let cachedPlatform: EventPlatform | null = null;
 
@@ -30,7 +31,10 @@ export function getEventPlatform(): EventPlatform {
   return cachedPlatform;
 }
 
-export function createPosModule(unitOfWork = new MongoUnitOfWork()) {
+export function createPosModule(
+  unitOfWork = new MongoUnitOfWork(),
+  loyalty?: PosLoyaltyDeps,
+) {
   const getSession = () => unitOfWork.getActiveSession();
   const menuRepository = new MongoRepository(getMenuModel(), new MenuMapper(), {}, getSession);
   const orderRepository = new MongoRepository(getOrderModel(), new OrderMapper(), {}, getSession);
@@ -51,6 +55,7 @@ export function createPosModule(unitOfWork = new MongoUnitOfWork()) {
     outboxDispatcher: platform.outboxDispatcher,
     eventStore: platform.eventStore,
     outbox: platform.outbox,
+    loyalty,
   });
 
   return {
@@ -88,4 +93,5 @@ export async function initializePosInfrastructure(): Promise<void> {
       await m.createIndexes();
     }),
   );
+  await initializeLoyaltyInfrastructure();
 }

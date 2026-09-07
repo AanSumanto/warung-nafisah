@@ -32,6 +32,14 @@ export class OrderMapper extends BaseMongoMapper<Order, OrderDocument> {
       paidAmount: record.paidAmount,
       changeAmount: record.changeAmount,
       paidAt: record.paidAt,
+      customerId: record.customerId ?? null,
+      customerSnapshot: record.customerSnapshot
+        ? {
+            customerId: record.customerSnapshot.customerId,
+            phoneMasked: record.customerSnapshot.phoneMasked,
+            name: record.customerSnapshot.name,
+          }
+        : null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };
@@ -65,6 +73,14 @@ export class OrderMapper extends BaseMongoMapper<Order, OrderDocument> {
         paidAmount: document.paidAmount,
         changeAmount: document.changeAmount,
         paidAt: document.paidAt,
+        customerId: document.customerId ?? undefined,
+        customerSnapshot: document.customerSnapshot
+          ? {
+              customerId: document.customerSnapshot.customerId,
+              phoneMasked: document.customerSnapshot.phoneMasked,
+              name: document.customerSnapshot.name,
+            }
+          : undefined,
       },
       document.createdAt,
       document.updatedAt,

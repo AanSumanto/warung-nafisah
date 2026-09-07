@@ -14,7 +14,13 @@ export function isTransientTransactionError(error: unknown): boolean {
   return (
     message.includes('transienttransactionerror') ||
     message.includes('unknowncommitresult') ||
-    message.includes('writeconflict')
+    message.includes('writeconflict') ||
+    message.includes('write conflict') ||
+    message.includes('has been aborted') ||
+    message.includes('transactionaborted') ||
+    message.includes('loyalty_earn_idempotent_race') ||
+    message.includes('e11000') ||
+    message.includes('duplicate key')
   );
 }
 

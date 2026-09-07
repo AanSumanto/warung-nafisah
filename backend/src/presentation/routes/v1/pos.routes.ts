@@ -40,6 +40,10 @@ const payOrderSchema = z.object({
   paidAmount: z.number().int().nonnegative().optional(),
 });
 
+const attachCustomerSchema = z.object({
+  customerId: z.string().trim().min(1).max(64),
+});
+
 const openShiftSchema = z.object({
   openingCash: z.number().int().nonnegative(),
 });
@@ -100,6 +104,14 @@ function mapOrder(order: Awaited<ReturnType<PosService['getOrder']>>) {
     paidAmount: order.paidAmount,
     changeAmount: order.changeAmount,
     paidAt: order.paidAt?.toISOString(),
+    customerId: order.customerId,
+    customerSnapshot: order.customerSnapshot
+      ? {
+          customerId: order.customerSnapshot.customerId,
+          phoneMasked: order.customerSnapshot.phoneMasked,
+          name: order.customerSnapshot.name,
+        }
+      : undefined,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   };
@@ -224,18 +236,45 @@ export function createPosRouter(posService: PosService, authService: AuthService
     }
   });
 
+  router.put('/orders/:orderId/customer', auth, async (req, res, next) => {
+    try {
+      const parsed = attachCustomerSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationException('customerId tidak valid');
+      const order = await posService.attachOrderCustomer(
+        param(req.params.orderId),
+        parsed.data.customerId,
+        req.user!,
+      );
+      return ResponseWrapper.success(res, mapOrder(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/orders/:orderId/customer', auth, async (req, res, next) => {
+    try {
+      const order = await posService.clearOrderCustomer(param(req.params.orderId), req.user!);
+      return ResponseWrapper.success(res, mapOrder(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post('/orders/:orderId/pay', auth, async (req, res, next) => {
     try {
       const parsed = payOrderSchema.safeParse(req.body);
       if (!parsed.success) throw new ValidationException('Data pembayaran tidak valid');
-      const order = await posService.payOrder({
+      const result = await posService.payOrder({
         orderId: param(req.params.orderId),
         paymentMethod: parsed.data.paymentMethod,
         paidAmount: parsed.data.paidAmount,
         correlationId: req.context?.correlationId,
         requester: req.user!,
       });
-      return ResponseWrapper.success(res, mapOrder(order));
+      return ResponseWrapper.success(res, {
+        ...mapOrder(result.order),
+        loyalty: result.loyalty,
+      });
     } catch (error) {
       next(error);
     }

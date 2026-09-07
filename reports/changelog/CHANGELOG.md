@@ -10,6 +10,75 @@ All notable changes to the Warung Nafisah ERP project documentation.
 
 - ADR-001 multi-repo migration
 - Sprint 5+: Inventory (blocked until Sprint 4.5.2 revision approval)
+- LOYALTY-02+: Loyalty program config, ledger, POS member integration
+
+---
+
+## [LOYALTY-02-final] — 2026-09-07 — Menu Alignment + Seven-Reward Catalog
+
+### Changed
+
+- Baseline catalog: 7 rewards (Ayam Paha AYM001 + Ayam Dada AYM002 @ 100 pts each)
+- Model Gandum locked to MDG001 (production owner-verified)
+- Local seed: AYM001 = Ayam Paha 16000; added AYM002 = Ayam Dada 17000
+- Installer / tests expect 7 rewards; no MDL001 / no REWARD_AYAM
+
+### Docs
+
+- Updated loyalty-02 menu verification (PRODUCTION_VALUE = VERIFIED via owner)
+- Implementation / verification / testing / database / todo reports refreshed
+
+---
+
+## [LOYALTY-02] — 2026-09-07 — Program Configuration + Reward Catalog
+
+### Added
+
+- `loyalty_program` / `loyalty_rewards` collections (indexes only on startup)
+- Owner/kasir read APIs; owner catalog/program mutation
+- Program activation blocked until earn engine exists
+- Explicit installer `scripts/install-loyalty-v1-config.ts` (idempotent, no silent overwrite)
+- Baseline catalog: 15/30/45/60/75/100 pts with HPP estimates
+
+### Guardrails
+
+- No earn/ledger/POS/receipt/portal
+- Default `enabled=false`
+- Production menu keys require operator verification (MDG001 baseline in repo)
+
+### Docs
+
+- `reports/implementation/loyalty-02-program-reward-implementation-report.md`
+- `reports/database/loyalty-02-menu-business-key-verification.md`
+- related testing/verification/security/api/todo reports
+
+---
+
+## [LOYALTY-01] — 2026-09-07 — Nafisah Rewards Customer Foundation
+
+### Added
+
+- Customer domain aggregate with Indonesian phone normalization/masking
+- Cryptographic `publicMemberId` (base64url, 192-bit entropy)
+- `customers` MongoDB collection with unique `phoneNormalized` + `publicMemberId`
+- Authenticated APIs: `POST /customers`, `GET /customers/lookup`, `GET /customers/:id`
+- Owner + kasir RBAC; no public customer endpoints
+- Unit + integration + concurrency tests (32 new; full suite 149 green)
+
+### Guardrails
+
+- No point mutation, ledger, rewards, portal, QR, or POS pay changes
+- No customer seed on startup; additive `createIndexes()` only
+
+### Docs
+
+- `reports/implementation/loyalty-01-customer-foundation-implementation-report.md`
+- `reports/testing/loyalty-01-customer-foundation-testing-report.md`
+- `reports/verification/loyalty-01-customer-foundation-verification-report.md`
+- `reports/security/loyalty-01-customer-foundation-security-review.md`
+- `reports/database/loyalty-01-customer-foundation-database-report.md`
+- `reports/api/loyalty-01-customer-foundation-api-report.md`
+- `reports/todo/loyalty-01-customer-foundation-todo.md`
 
 ---
 

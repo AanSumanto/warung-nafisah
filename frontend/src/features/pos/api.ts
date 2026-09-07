@@ -58,6 +58,16 @@ export async function payOrder(orderId: string, body: PayOrderRequest): Promise<
   return unwrap(apiClient.post<ApiSuccessResponse<Order>>(`/orders/${orderId}/pay`, body));
 }
 
+export async function attachOrderCustomer(orderId: string, customerId: string): Promise<Order> {
+  return unwrap(
+    apiClient.put<ApiSuccessResponse<Order>>(`/orders/${orderId}/customer`, { customerId }),
+  );
+}
+
+export async function clearOrderCustomer(orderId: string): Promise<Order> {
+  return unwrap(apiClient.delete<ApiSuccessResponse<Order>>(`/orders/${orderId}/customer`));
+}
+
 export async function fetchTodayOrders(): Promise<Order[]> {
   return unwrap(apiClient.get<ApiSuccessResponse<Order[]>>('/orders/today'));
 }

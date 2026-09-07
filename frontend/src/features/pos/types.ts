@@ -53,6 +53,13 @@ export interface Order {
   readonly paidAmount?: number;
   readonly changeAmount?: number;
   readonly paidAt?: string;
+  readonly customerId?: string;
+  readonly customerSnapshot?: {
+    readonly customerId: string;
+    readonly phoneMasked: string;
+    readonly name?: string;
+  };
+  readonly loyalty?: import('./loyaltyTypes').LoyaltyPayResult;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

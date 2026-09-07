@@ -41,11 +41,21 @@ const DEFAULT_MENUS: SeedMenu[] = [
   {
     _id: 'menu_aym001',
     kodeMenu: 'AYM001',
-    namaMenu: 'Ayam',
+    namaMenu: 'Ayam Paha',
     tipeMenu: 'ITEM',
     kodeKategori: 'MODEL',
     namaKategori: 'Model Gandum',
-    hargaJual: 15_000,
+    hargaJual: 16_000,
+    sellingTime: '07:00 - 14:00',
+  },
+  {
+    _id: 'menu_aym002',
+    kodeMenu: 'AYM002',
+    namaMenu: 'Ayam Dada',
+    tipeMenu: 'ITEM',
+    kodeKategori: 'MODEL',
+    namaKategori: 'Model Gandum',
+    hargaJual: 17_000,
     sellingTime: '07:00 - 14:00',
   },
   {

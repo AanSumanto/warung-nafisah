@@ -15,6 +15,12 @@ export interface OrderItemEmbedded {
   note?: string;
 }
 
+export interface OrderCustomerSnapshotEmbedded {
+  customerId: string;
+  phoneMasked: string;
+  name?: string;
+}
+
 export interface OrderDocument extends TimestampDocument {
   orderNumber: string;
   status: OrderStatus;
@@ -28,6 +34,9 @@ export interface OrderDocument extends TimestampDocument {
   paidAmount?: number;
   changeAmount?: number;
   paidAt?: Date;
+  /** Optional — historical orders omit these fields. */
+  customerId?: string | null;
+  customerSnapshot?: OrderCustomerSnapshotEmbedded | null;
 }
 
 const orderItemSchema = new Schema<OrderItemEmbedded>(
@@ -61,6 +70,16 @@ const orderSchema = new Schema<OrderDocument>(
     paidAmount: { type: Number },
     changeAmount: { type: Number },
     paidAt: { type: Date, index: true },
+    customerId: { type: String, index: true, sparse: true },
+    customerSnapshot: {
+      type: {
+        customerId: { type: String, required: true },
+        phoneMasked: { type: String, required: true },
+        name: { type: String },
+      },
+      required: false,
+      _id: false,
+    },
     createdAt: { type: Date, required: true },
     updatedAt: { type: Date, required: true },
   },

@@ -62,7 +62,7 @@ describe('Operational POS MVP Integration', () => {
   it('lists menus', async () => {
     const res = await request(app).get('/api/v1/menus').set('Authorization', `Bearer ${kasirToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.length).toBe(13);
+    expect(res.body.data.length).toBe(14);
   });
 
   it('creates sale with business event and outbox', async () => {

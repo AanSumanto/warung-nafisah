@@ -17,6 +17,8 @@ import {
   MenuList,
   MenuGridSkeleton,
   MenuSearchBar,
+  MemberLookupSheet,
+  MemberSection,
   OpenShiftDialog,
   PaymentBottomSheet,
   ReceiptPreviewSheet,
@@ -32,6 +34,9 @@ import {
   type PaymentMethod,
   type DiningType,
 } from '@/features/pos';
+import { useQuery } from '@tanstack/react-query';
+import { attachOrderCustomer, fetchLoyaltyPosUi, loyaltyPosQueryKeys } from '@/features/pos/loyaltyApi';
+import type { PosMemberSelection } from '@/features/pos/loyaltyTypes';
 
 function usePosCart() {
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -122,6 +127,15 @@ export default function PosPage() {
   const [closeShiftOpen, setCloseShiftOpen] = useState(false);
   const [paidOrder, setPaidOrder] = useState<Order | null>(null);
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
+  const [member, setMember] = useState<PosMemberSelection | null>(null);
+  const [memberSheetOpen, setMemberSheetOpen] = useState(false);
+
+  const { data: loyaltyPosUi } = useQuery({
+    queryKey: loyaltyPosQueryKeys.posUi,
+    queryFn: fetchLoyaltyPosUi,
+    staleTime: 60_000,
+  });
+  const memberUiEnabled = Boolean(loyaltyPosUi?.memberUiEnabled);
 
   const cartState = usePosCart();
   const createOrderMutation = useCreateOrder();
@@ -130,6 +144,15 @@ export default function PosPage() {
 
   const paying =
     createOrderMutation.isPending || updateItemsMutation.isPending || payOrderMutation.isPending;
+
+  const memberSlot = (
+    <MemberSection
+      enabled={memberUiEnabled}
+      member={member}
+      onSearch={() => setMemberSheetOpen(true)}
+      onClear={() => setMember(null)}
+    />
+  );
 
   const handlePay = async (paymentMethod: PaymentMethod, paidAmount: number) => {
     if (cartState.cart.length === 0) return;
@@ -146,6 +169,11 @@ export default function PosPage() {
           })),
         },
       });
+
+      if (memberUiEnabled && member) {
+        await attachOrderCustomer(updated.id, member.customerId);
+      }
+
       const paid = await payOrderMutation.mutateAsync({
         orderId: updated.id,
         body: { paymentMethod, paidAmount },
@@ -154,9 +182,20 @@ export default function PosPage() {
       setPaymentOpen(false);
       setCartOpen(false);
       cartState.clear();
+      setMember(null);
       setPaidOrder(paid);
       setReceiptPreviewOpen(true);
-      enqueueSnackbar('Pembayaran berhasil', { variant: 'success' });
+
+      if (paid.loyalty?.awarded && typeof paid.loyalty.pointsEarned === 'number') {
+        enqueueSnackbar(
+          `Pembayaran berhasil · +${paid.loyalty.pointsEarned} poin (total ${paid.loyalty.balanceAfter})`,
+          { variant: 'success' },
+        );
+      } else if (paid.loyalty?.memberAttached && paid.loyalty.reason === 'PROGRAM_DISABLED') {
+        enqueueSnackbar('Pembayaran berhasil · Member tercatat', { variant: 'success' });
+      } else {
+        enqueueSnackbar('Pembayaran berhasil', { variant: 'success' });
+      }
     } catch {
       enqueueSnackbar('Gagal memproses pembayaran', { variant: 'error' });
     }
@@ -193,6 +232,13 @@ export default function PosPage() {
         />
       ) : null}
 
+      <MemberLookupSheet
+        open={memberSheetOpen}
+        onClose={() => setMemberSheetOpen(false)}
+        onSelect={setMember}
+        onSkip={() => setMember(null)}
+      />
+
       <PaymentBottomSheet
         open={paymentOpen}
         total={cartState.total}
@@ -208,6 +254,7 @@ export default function PosPage() {
         total={cartState.total}
         disabled={!shiftReady}
         paying={paying}
+        memberSlot={memberSlot}
         onClose={() => setCartOpen(false)}
         onDiningTypeChange={cartState.setDiningType}
         onIncrement={cartState.increment}
@@ -215,7 +262,10 @@ export default function PosPage() {
         onAddQty={cartState.addQty}
         onRemove={cartState.remove}
         onNoteChange={cartState.setNote}
-        onClear={cartState.clear}
+        onClear={() => {
+          cartState.clear();
+          setMember(null);
+        }}
         onPay={openPayment}
       />
 
@@ -305,12 +355,16 @@ export default function PosPage() {
                 total={cartState.total}
                 disabled={!shiftReady}
                 paying={paying}
+                memberSlot={memberSlot}
                 onDiningTypeChange={cartState.setDiningType}
                 onIncrement={cartState.increment}
                 onDecrement={cartState.decrement}
                 onRemove={cartState.remove}
                 onNoteChange={cartState.setNote}
-                onClear={cartState.clear}
+                onClear={() => {
+                  cartState.clear();
+                  setMember(null);
+                }}
                 onPay={openPayment}
               />
             </Box>
