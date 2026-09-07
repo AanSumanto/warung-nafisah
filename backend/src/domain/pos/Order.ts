@@ -18,6 +18,46 @@ export interface OrderCustomerSnapshot {
   readonly name?: string;
 }
 
+/**
+ * Transaction-time loyalty receipt snapshot (LOYALTY-05+).
+ * Not a second ledger — reprint uses this; earn/redeem never re-run.
+ */
+export interface OrderLoyaltyRedemptionSnapshot {
+  readonly rewardCode: string;
+  readonly rewardName: string;
+  readonly menuKode: string;
+  readonly pointsUsed: number;
+  readonly rewardHppSnapshot: number;
+  readonly ledgerEntryId: string;
+  readonly balanceAfter: number;
+}
+
+export interface OrderLoyaltyReceipt {
+  readonly awarded: true;
+  readonly pointsEarned: number;
+  readonly balanceAfter: number;
+  readonly eligiblePaidAmount: number;
+  readonly programVersion: number;
+  readonly pointEarnRate: number;
+  readonly ledgerEntryId: string;
+  readonly phoneMasked: string;
+  readonly name?: string;
+  readonly publicMemberId: string;
+  readonly progressMessage: string;
+  readonly memberPortalUrl?: string;
+  readonly nextRewardName?: string;
+  readonly nextRewardPointsRemaining?: number;
+  readonly redemption?: OrderLoyaltyRedemptionSnapshot;
+}
+
+/** Draft-only — does NOT deduct points. */
+export interface OrderLoyaltyRedemptionIntent {
+  readonly rewardCode: string;
+  readonly customerId: string;
+  readonly selectedAt: Date;
+  readonly selectedBy: string;
+}
+
 export interface OrderRecord {
   orderNumber: string;
   status: OrderStatus;
@@ -33,6 +73,8 @@ export interface OrderRecord {
   /** Optional LOYALTY-04 member link — absent on historical / non-member orders. */
   customerId?: string;
   customerSnapshot?: OrderCustomerSnapshot;
+  loyaltyReceipt?: OrderLoyaltyReceipt;
+  loyaltyRedemptionIntent?: OrderLoyaltyRedemptionIntent;
 }
 
 export class Order extends AggregateRoot {
@@ -134,8 +176,23 @@ export class Order extends AggregateRoot {
     return this.orderRecord.customerSnapshot;
   }
 
+  get loyaltyReceipt(): OrderLoyaltyReceipt | undefined {
+    return this.orderRecord.loyaltyReceipt;
+  }
+
+  get loyaltyRedemptionIntent(): OrderLoyaltyRedemptionIntent | undefined {
+    return this.orderRecord.loyaltyRedemptionIntent;
+  }
+
   get total(): number {
     return this.orderRecord.items.reduce((sum, item) => sum + item.subtotal, 0);
+  }
+
+  /** Merchandise total excluding REWARD lines (Rp0). */
+  get paidMerchandiseTotal(): number {
+    return this.orderRecord.items
+      .filter((item) => item.lineKind !== 'REWARD')
+      .reduce((sum, item) => sum + item.subtotal, 0);
   }
 
   private assertDraft(): void {
@@ -146,6 +203,12 @@ export class Order extends AggregateRoot {
 
   setItems(items: OrderItem[]): Order {
     this.assertDraft();
+    if (items.some((item) => item.lineKind === 'REWARD')) {
+      throw DomainError.invalidArgument(
+        'REWARD lines cannot be set via cart; use redemption intent',
+        'items',
+      );
+    }
     return new Order(
       this.id,
       { ...this.orderRecord, items: [...items] },
@@ -156,6 +219,7 @@ export class Order extends AggregateRoot {
 
   /**
    * Attach or replace member on a draft order. Snapshot is immutable at sale time.
+   * Changing member clears any redemption intent.
    */
   attachCustomer(snapshot: OrderCustomerSnapshot): Order {
     this.assertDraft();
@@ -166,15 +230,61 @@ export class Order extends AggregateRoot {
       throw DomainError.invalidArgument('phoneMasked is required', 'phoneMasked');
     }
     const customerId = snapshot.customerId.trim();
+    const { loyaltyRedemptionIntent: _intent, ...rest } = this.orderRecord;
     return new Order(
       this.id,
       {
-        ...this.orderRecord,
+        ...rest,
         customerId,
         customerSnapshot: {
           customerId,
           phoneMasked: snapshot.phoneMasked.trim(),
           name: snapshot.name?.trim() || undefined,
+        },
+        items: [...this.orderRecord.items],
+      },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  /** Remove member from a draft order (Tanpa Member / Lewati). Clears redemption intent. */
+  clearCustomer(): Order {
+    this.assertDraft();
+    const {
+      customerId: _c,
+      customerSnapshot: _s,
+      loyaltyRedemptionIntent: _i,
+      ...rest
+    } = this.orderRecord;
+    return new Order(
+      this.id,
+      { ...rest, items: [...this.orderRecord.items] },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  setRedemptionIntent(intent: OrderLoyaltyRedemptionIntent): Order {
+    this.assertDraft();
+    if (!this.orderRecord.customerId) {
+      throw DomainError.invariant('Member harus dilampirkan sebelum pilih reward');
+    }
+    if (intent.customerId !== this.orderRecord.customerId) {
+      throw DomainError.invalidArgument('customerId tidak cocok dengan order', 'customerId');
+    }
+    if (!intent.rewardCode?.trim()) {
+      throw DomainError.invalidArgument('rewardCode is required', 'rewardCode');
+    }
+    return new Order(
+      this.id,
+      {
+        ...this.orderRecord,
+        loyaltyRedemptionIntent: {
+          rewardCode: intent.rewardCode.trim().toUpperCase(),
+          customerId: intent.customerId.trim(),
+          selectedAt: intent.selectedAt,
+          selectedBy: intent.selectedBy.trim(),
         },
       },
       this.createdAt,
@@ -182,13 +292,49 @@ export class Order extends AggregateRoot {
     );
   }
 
-  /** Remove member from a draft order (Tanpa Member / Lewati). */
-  clearCustomer(): Order {
+  clearRedemptionIntent(): Order {
     this.assertDraft();
-    const { customerId: _c, customerSnapshot: _s, ...rest } = this.orderRecord;
+    const { loyaltyRedemptionIntent: _i, ...rest } = this.orderRecord;
     return new Order(
       this.id,
       { ...rest, items: [...this.orderRecord.items] },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  /**
+   * Attach Rp0 REWARD line and clear intent (draft → ready for pay).
+   * At most one REWARD line per order.
+   */
+  materializeRewardLine(rewardItem: OrderItem): Order {
+    this.assertDraft();
+    if (rewardItem.lineKind !== 'REWARD') {
+      throw DomainError.invalidArgument('Expected REWARD line', 'lineKind');
+    }
+    if (this.orderRecord.items.some((item) => item.lineKind === 'REWARD')) {
+      throw DomainError.invariant('Order already has a REWARD line');
+    }
+    const { loyaltyRedemptionIntent: _i, ...rest } = this.orderRecord;
+    return new Order(
+      this.id,
+      {
+        ...rest,
+        items: [...this.orderRecord.items, rewardItem],
+      },
+      this.createdAt,
+      new Date(),
+    );
+  }
+
+  /** Attach immutable loyalty receipt snapshot after successful earn (paid orders only). */
+  withLoyaltyReceipt(receipt: OrderLoyaltyReceipt): Order {
+    if (this.orderRecord.status !== 'paid') {
+      throw DomainError.invariant('Loyalty receipt only applies to paid orders');
+    }
+    return new Order(
+      this.id,
+      { ...this.orderRecord, loyaltyReceipt: { ...receipt } },
       this.createdAt,
       new Date(),
     );
@@ -275,6 +421,17 @@ export class Order extends AggregateRoot {
       items: [...this.orderRecord.items],
       customerSnapshot: this.orderRecord.customerSnapshot
         ? { ...this.orderRecord.customerSnapshot }
+        : undefined,
+      loyaltyReceipt: this.orderRecord.loyaltyReceipt
+        ? {
+            ...this.orderRecord.loyaltyReceipt,
+            redemption: this.orderRecord.loyaltyReceipt.redemption
+              ? { ...this.orderRecord.loyaltyReceipt.redemption }
+              : undefined,
+          }
+        : undefined,
+      loyaltyRedemptionIntent: this.orderRecord.loyaltyRedemptionIntent
+        ? { ...this.orderRecord.loyaltyRedemptionIntent }
         : undefined,
     };
   }

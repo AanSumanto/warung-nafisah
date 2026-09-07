@@ -8,7 +8,12 @@ import {
   formatReceiptOrderShort,
 } from '../receipt/formatMoney';
 
-export type CompactReceiptLineKind = 'heavy-separator' | 'light-separator' | 'text' | 'row';
+export type CompactReceiptLineKind =
+  | 'heavy-separator'
+  | 'light-separator'
+  | 'text'
+  | 'row'
+  | 'qr';
 
 export interface CompactReceiptLine {
   readonly kind: CompactReceiptLineKind;
@@ -17,6 +22,8 @@ export interface CompactReceiptLine {
   readonly right?: string;
   readonly align?: 'left' | 'center';
   readonly weight?: 'normal' | 'bold';
+  /** Portal URL for native ESC/POS QR — never logged as full token at info. */
+  readonly qrPayload?: string;
 }
 
 function heavySeparator(width: number): CompactReceiptLine {
@@ -58,12 +65,14 @@ export function buildCompactReceiptLines(receipt: Receipt, profile: PrinterProfi
   lines.push(lightSeparator(width));
 
   for (const item of receipt.items) {
+    const name =
+      item.lineKind === 'REWARD' ? `${item.namaMenu} (Reward)` : item.namaMenu;
     lines.push({
       kind: 'row',
-      left: `${item.qty}x ${item.namaMenu}`,
+      left: `${item.qty}x ${name}`,
       right: formatReceiptMoney(item.subtotal),
     });
-    if (item.note) {
+    if (item.note && item.lineKind !== 'REWARD') {
       lines.push({ kind: 'text', text: `* ${item.note}` });
     }
   }
@@ -86,9 +95,71 @@ export function buildCompactReceiptLines(receipt: Receipt, profile: PrinterProfi
     weight: 'bold',
   });
 
+  if (receipt.loyalty) {
+    lines.push(lightSeparator(width));
+    lines.push({ kind: 'text', text: 'NAFISAH REWARDS', align: 'center', weight: 'bold' });
+    const memberLabel = receipt.loyalty.memberName
+      ? `${truncate(receipt.loyalty.memberName, 14)} — ${receipt.loyalty.phoneMasked}`
+      : receipt.loyalty.phoneMasked;
+    lines.push({ kind: 'text', text: `Member: ${memberLabel}` });
+    if (receipt.loyalty.redemption) {
+      lines.push({
+        kind: 'text',
+        text: `Reward: ${truncate(receipt.loyalty.redemption.rewardName, 22)}`,
+      });
+      lines.push({
+        kind: 'row',
+        left: 'Poin digunakan',
+        right: `-${receipt.loyalty.redemption.pointsUsed}`,
+      });
+    }
+    lines.push({
+      kind: 'row',
+      left: 'Poin transaksi',
+      right: `+${receipt.loyalty.pointsEarned}`,
+    });
+    lines.push({
+      kind: 'row',
+      left: 'Total poin',
+      right: String(receipt.loyalty.balanceAfter),
+    });
+    for (const part of wrapText(receipt.loyalty.progressMessage, width)) {
+      lines.push({ kind: 'text', text: part });
+    }
+
+    if (receipt.loyalty.memberPortalUrl) {
+      lines.push({ kind: 'qr', qrPayload: receipt.loyalty.memberPortalUrl });
+      lines.push({ kind: 'text', text: 'Scan untuk cek poin & reward', align: 'center' });
+    } else {
+      lines.push({ kind: 'text', text: 'Cek poin di Nafisah Rewards', align: 'center' });
+    }
+  }
+
   lines.push(lightSeparator(width));
   lines.push({ kind: 'text', text: formatReceiptFooterCompact(receipt.footerMessage), align: 'center' });
   lines.push(heavySeparator(width));
 
   return lines;
+}
+
+function truncate(value: string, max: number): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, Math.max(1, max - 1))}…`;
+}
+
+function wrapText(value: string, width: number): string[] {
+  const text = value.trim();
+  if (!text) return [];
+  if (text.length <= width) return [text];
+  const parts: string[] = [];
+  let remaining = text;
+  while (remaining.length > width) {
+    let breakAt = remaining.lastIndexOf(' ', width);
+    if (breakAt < Math.floor(width / 2)) breakAt = width;
+    parts.push(remaining.slice(0, breakAt).trimEnd());
+    remaining = remaining.slice(breakAt).trimStart();
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
 }

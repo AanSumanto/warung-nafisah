@@ -249,6 +249,8 @@ describe('LOYALTY-04 POS member + pay integration', () => {
       awarded: false,
       reason: 'PROGRAM_DISABLED',
     });
+    expect(payRes.body.data.loyalty.receiptProgress).toBeUndefined();
+    expect(payRes.body.data.loyalty.memberPortalUrl).toBeUndefined();
     expect(await getLoyaltyLedgerModel().countDocuments()).toBe(0);
     const customer = await getCustomerModel().findById(member.id).lean();
     expect(customer?.currentPoints).toBe(0);
@@ -284,6 +286,14 @@ describe('LOYALTY-04 POS member + pay integration', () => {
       balanceAfter: expectedPoints,
       eligiblePaidAmount: total,
     });
+    expect(payRes.body.data.loyalty.receiptProgress).toEqual(
+      expect.objectContaining({
+        progressMessage: expect.any(String),
+        eligibleRewardCount: expect.any(Number),
+        hasRedeemableThreshold: expect.any(Boolean),
+      }),
+    );
+    expect(payRes.body.data.loyalty.memberPortalUrl).toBeUndefined();
     expect(await getLoyaltyLedgerModel().countDocuments()).toBe(1);
     const customer = await getCustomerModel().findById(member.id).lean();
     expect(customer?.currentPoints).toBe(expectedPoints);
@@ -506,6 +516,7 @@ describe('LOYALTY-04 POS member + pay integration', () => {
       .set('Authorization', `Bearer ${kasirToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.memberUiEnabled).toBe(false);
+    expect(res.body.data.receiptQrEnabled).toBe(false);
   });
 
   it('clear customer before pay', async () => {

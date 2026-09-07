@@ -58,4 +58,16 @@ export class MongoLoyaltyLedgerRepository implements ILoyaltyLedgerRepository {
       .lean();
     return docs.map((d) => this.mapper.toDomain(d));
   }
+
+  async listRecentByCustomer(customerId: string, limit: number): Promise<LoyaltyLedgerEntry[]> {
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 50);
+    const session = this.getActiveSession?.() ?? null;
+    const docs = await this.model
+      .find({ customerId })
+      .session(session)
+      .sort({ occurredAt: -1, createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+    return docs.map((d) => this.mapper.toDomain(d));
+  }
 }

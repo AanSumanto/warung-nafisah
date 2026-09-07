@@ -22,11 +22,17 @@ import type { ICustomerRepository } from '../../domain/loyalty/ICustomerReposito
 import type { ILoyaltyProgramRepository } from '../../domain/loyalty/ILoyaltyProgramRepository.js';
 import { LOYALTY_PROGRAM_CODE } from '../../domain/loyalty/LoyaltyTypes.js';
 import type { LoyaltyEarnService } from '../loyalty/LoyaltyEarnService.js';
+import type { LoyaltyReceiptProgressService } from '../loyalty/LoyaltyReceiptProgressService.js';
+import type { LoyaltyRedemptionService } from '../loyalty/LoyaltyRedemptionService.js';
+import type { ILoyaltyRewardRepository } from '../../domain/loyalty/ILoyaltyRewardRepository.js';
+import { buildMemberPortalUrl } from '../loyalty/buildMemberPortalUrl.js';
+import { getEnv } from '../../config/env.js';
 import { deriveEligiblePaidAmount } from './deriveEligiblePaidAmount.js';
 import {
   loyaltyNoMember,
   loyaltySkipped,
   type LoyaltyPayResult,
+  type LoyaltyRedemptionPaySnapshot,
 } from './LoyaltyPayResult.js';
 
 export interface CartItemInput {
@@ -68,8 +74,11 @@ function mapDomainError(error: unknown): never {
 
 export interface PosLoyaltyDeps {
   loyaltyEarnService: LoyaltyEarnService;
+  loyaltyRedemptionService: LoyaltyRedemptionService;
   customerRepository: ICustomerRepository;
   programRepository: ILoyaltyProgramRepository;
+  rewardRepository: ILoyaltyRewardRepository;
+  receiptProgressService: LoyaltyReceiptProgressService;
 }
 
 export interface PosServiceDeps {
@@ -128,6 +137,22 @@ async function aggregateDashboard(paidAtFilter: { $gte: Date; $lte: Date }) {
 function orderCustomerFields(doc: {
   customerId?: string | null;
   customerSnapshot?: { customerId: string; phoneMasked: string; name?: string } | null;
+  loyaltyReceipt?: {
+    awarded: true;
+    pointsEarned: number;
+    balanceAfter: number;
+    eligiblePaidAmount: number;
+    programVersion: number;
+    pointEarnRate: number;
+    ledgerEntryId: string;
+    phoneMasked: string;
+    name?: string;
+    publicMemberId: string;
+    progressMessage: string;
+    memberPortalUrl?: string;
+    nextRewardName?: string;
+    nextRewardPointsRemaining?: number;
+  } | null;
 }) {
   return {
     customerId: doc.customerId ?? undefined,
@@ -136,6 +161,24 @@ function orderCustomerFields(doc: {
           customerId: doc.customerSnapshot.customerId,
           phoneMasked: doc.customerSnapshot.phoneMasked,
           name: doc.customerSnapshot.name,
+        }
+      : undefined,
+    loyaltyReceipt: doc.loyaltyReceipt
+      ? {
+          awarded: true as const,
+          pointsEarned: doc.loyaltyReceipt.pointsEarned,
+          balanceAfter: doc.loyaltyReceipt.balanceAfter,
+          eligiblePaidAmount: doc.loyaltyReceipt.eligiblePaidAmount,
+          programVersion: doc.loyaltyReceipt.programVersion,
+          pointEarnRate: doc.loyaltyReceipt.pointEarnRate,
+          ledgerEntryId: doc.loyaltyReceipt.ledgerEntryId,
+          phoneMasked: doc.loyaltyReceipt.phoneMasked,
+          name: doc.loyaltyReceipt.name,
+          publicMemberId: doc.loyaltyReceipt.publicMemberId,
+          progressMessage: doc.loyaltyReceipt.progressMessage,
+          memberPortalUrl: doc.loyaltyReceipt.memberPortalUrl,
+          nextRewardName: doc.loyaltyReceipt.nextRewardName,
+          nextRewardPointsRemaining: doc.loyaltyReceipt.nextRewardPointsRemaining,
         }
       : undefined,
   };
@@ -313,6 +356,111 @@ export class PosService {
     }
   }
 
+  async listOrderRewards(orderId: string, requester: RequesterContext) {
+    const loyalty = this.requireLoyalty();
+    loyalty.loyaltyRedemptionService.assertRedemptionGateEnabled();
+    const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
+    if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
+    if (!order.customerId) {
+      throw new ValidationException('Order belum memiliki member', {
+        code: 'LOYALTY_REDEMPTION_MEMBER_MISMATCH',
+      });
+    }
+    const customer = await loyalty.customerRepository.findById(
+      createIdentifier(order.customerId),
+    );
+    if (!customer || !customer.isActive()) {
+      throw new ValidationException('Pelanggan tidak valid untuk reward', {
+        code: 'LOYALTY_REDEMPTION_CUSTOMER_BLOCKED',
+      });
+    }
+    const rewards = await loyalty.loyaltyRedemptionService.listCashierRewardsForBalance(
+      customer.currentPoints,
+    );
+    return {
+      currentPoints: customer.currentPoints,
+      phoneMasked: customer.phoneMasked,
+      name: customer.name,
+      selectedRewardCode: order.loyaltyRedemptionIntent?.rewardCode,
+      rewards,
+    };
+  }
+
+  async listMemberRewards(customerId: string, _requester: RequesterContext) {
+    const loyalty = this.requireLoyalty();
+    loyalty.loyaltyRedemptionService.assertRedemptionGateEnabled();
+    const customer = await loyalty.customerRepository.findById(createIdentifier(customerId.trim()));
+    if (!customer || !customer.isActive()) {
+      throw new ValidationException('Pelanggan tidak valid untuk reward', {
+        code: 'LOYALTY_REDEMPTION_CUSTOMER_BLOCKED',
+      });
+    }
+    const rewards = await loyalty.loyaltyRedemptionService.listCashierRewardsForBalance(
+      customer.currentPoints,
+    );
+    return {
+      currentPoints: customer.currentPoints,
+      phoneMasked: customer.phoneMasked,
+      name: customer.name,
+      rewards,
+    };
+  }
+
+  async setOrderReward(
+    orderId: string,
+    rewardCode: string,
+    requester: RequesterContext,
+  ): Promise<Order> {
+    const loyalty = this.requireLoyalty();
+    loyalty.loyaltyRedemptionService.assertRedemptionGateEnabled();
+    const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
+    if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
+    if (order.status !== 'draft') {
+      throw new ValidationException('Reward hanya dapat dipilih pada order draft', {
+        code: 'ORDER_NOT_DRAFT',
+      });
+    }
+    if (!order.customerId) {
+      throw new ValidationException('Lampirkan member sebelum pilih reward', {
+        code: 'LOYALTY_REDEMPTION_MEMBER_MISMATCH',
+      });
+    }
+    await loyalty.loyaltyRedemptionService.assertRewardSelectable(
+      rewardCode,
+      order.customerId,
+    );
+    try {
+      const updated = order.setRedemptionIntent({
+        rewardCode: rewardCode.trim().toUpperCase(),
+        customerId: order.customerId,
+        selectedAt: new Date(),
+        selectedBy: requester.sub,
+      });
+      return await this.deps.orderRepository.save(updated);
+    } catch (error) {
+      mapDomainError(error);
+    }
+  }
+
+  async clearOrderReward(orderId: string, requester: RequesterContext): Promise<Order> {
+    const order = await this.deps.orderRepository.findById(createIdentifier(orderId));
+    if (!order) throw new NotFoundException('Order tidak ditemukan');
+    assertOrderAccess(order, requester);
+    if (order.status !== 'draft') {
+      throw new ValidationException('Reward hanya dapat diubah pada order draft', {
+        code: 'ORDER_NOT_DRAFT',
+      });
+    }
+    try {
+      const updated = order.clearRedemptionIntent();
+      return await this.deps.orderRepository.save(updated);
+    } catch (error) {
+      mapDomainError(error);
+    }
+  }
+
   async payOrder(input: {
     orderId: string;
     paymentMethod: PaymentMethod;
@@ -322,9 +470,107 @@ export class PosService {
   }): Promise<PayOrderResult> {
     const result = await this.deps.unitOfWork.execute(async () => {
       const session = this.deps.unitOfWork.getActiveSession();
-      const order = await this.deps.orderRepository.findById(createIdentifier(input.orderId));
+      let order = await this.deps.orderRepository.findById(createIdentifier(input.orderId));
       if (!order) throw new NotFoundException('Order tidak ditemukan');
       assertOrderAccess(order, input.requester);
+
+      let redemptionSnap: LoyaltyRedemptionPaySnapshot | undefined;
+
+      if (order.loyaltyRedemptionIntent) {
+        const loyalty = this.requireLoyalty();
+        const intent = order.loyaltyRedemptionIntent;
+
+        if (!order.customerId || intent.customerId !== order.customerId) {
+          throw new ValidationException('Member reward tidak cocok dengan order', {
+            code: 'LOYALTY_REDEMPTION_MEMBER_MISMATCH',
+          });
+        }
+
+        const reward = await loyalty.rewardRepository.findByRewardCode(intent.rewardCode);
+        if (!reward) {
+          throw new ValidationException('Reward tidak ditemukan', {
+            code: 'LOYALTY_REWARD_NOT_FOUND',
+          });
+        }
+        const menu = await this.findMenuByKode(reward.menuKode);
+        if (!menu) {
+          throw new ValidationException('Reward sedang tidak tersedia. Pilih reward lain.', {
+            code: 'LOYALTY_REWARD_UNAVAILABLE',
+          });
+        }
+
+        // Materialize Rp0 line before pay so total/eligible include it correctly
+        const rewardItem = new OrderItem(
+          crypto.randomUUID(),
+          OrderItem.rewardLine({
+            kodeMenu: menu.kodeMenu,
+            namaMenu: menu.namaMenu,
+            kodeKategori: menu.kodeKategori,
+            namaKategori: menu.namaKategori,
+            tipeMenu: menu.tipeMenu,
+            rewardCode: reward.rewardCode,
+            rewardHppSnapshot: reward.hppEstimate,
+            pointsUsed: reward.pointsRequired,
+          }),
+        );
+        order = order.materializeRewardLine(rewardItem);
+
+        const tender =
+          input.paidAmount !== undefined ? { paidAmount: input.paidAmount } : undefined;
+        const paid = order.pay(input.paymentMethod, tender, input.correlationId);
+        await this.deps.orderRepository.save(paid);
+        await this.deps.paymentWriter.persistPaidOrder(paid, input.paymentMethod, session);
+
+        const redeemed = await loyalty.loyaltyRedemptionService.redeemInActiveSession(
+          {
+            customerId: intent.customerId,
+            orderId: String(paid.id),
+            rewardCode: intent.rewardCode,
+            occurredAt: paid.paidAt ?? new Date(),
+            actorUserId: paid.cashierId,
+          },
+          menu,
+        );
+        redemptionSnap = {
+          rewardCode: redeemed.rewardCode,
+          rewardName: redeemed.rewardName,
+          menuKode: redeemed.menuKode,
+          pointsUsed: redeemed.pointsUsed,
+          rewardHppSnapshot: redeemed.rewardHppSnapshot,
+          ledgerEntryId: redeemed.ledgerEntryId,
+          balanceAfter: redeemed.balanceAfter,
+        };
+
+        const loyaltyResult = await this.applyLoyaltyEarnInActiveSession(paid, redemptionSnap);
+
+        let finalOrder = paid;
+        if (loyaltyResult.awarded && loyaltyResult.publicMemberId && loyaltyResult.receiptProgress) {
+          finalOrder = paid.withLoyaltyReceipt({
+            awarded: true,
+            pointsEarned: loyaltyResult.pointsEarned!,
+            balanceAfter: loyaltyResult.balanceAfter!,
+            eligiblePaidAmount: loyaltyResult.eligiblePaidAmount!,
+            programVersion: loyaltyResult.programVersion!,
+            pointEarnRate: loyaltyResult.pointEarnRate!,
+            ledgerEntryId: loyaltyResult.ledgerEntryId!,
+            phoneMasked: loyaltyResult.phoneMasked!,
+            name: loyaltyResult.name,
+            publicMemberId: loyaltyResult.publicMemberId,
+            progressMessage: loyaltyResult.receiptProgress.progressMessage,
+            memberPortalUrl: loyaltyResult.memberPortalUrl,
+            nextRewardName: loyaltyResult.receiptProgress.nextReward?.name,
+            nextRewardPointsRemaining: loyaltyResult.receiptProgress.nextReward?.pointsRemaining,
+            redemption: redemptionSnap,
+          });
+          await this.deps.orderRepository.save(finalOrder);
+        }
+
+        for (const event of paid.clearDomainEvents()) {
+          await this.deps.eventPublisher.publish(event, session);
+        }
+
+        return { order: finalOrder, loyalty: loyaltyResult };
+      }
 
       const tender =
         input.paidAmount !== undefined ? { paidAmount: input.paidAmount } : undefined;
@@ -332,13 +578,34 @@ export class PosService {
       await this.deps.orderRepository.save(paid);
       await this.deps.paymentWriter.persistPaidOrder(paid, input.paymentMethod, session);
 
-      const loyalty = await this.applyLoyaltyEarnInActiveSession(paid);
+      const loyaltyResult = await this.applyLoyaltyEarnInActiveSession(paid);
+
+      let finalOrder = paid;
+      if (loyaltyResult.awarded && loyaltyResult.publicMemberId && loyaltyResult.receiptProgress) {
+        finalOrder = paid.withLoyaltyReceipt({
+          awarded: true,
+          pointsEarned: loyaltyResult.pointsEarned!,
+          balanceAfter: loyaltyResult.balanceAfter!,
+          eligiblePaidAmount: loyaltyResult.eligiblePaidAmount!,
+          programVersion: loyaltyResult.programVersion!,
+          pointEarnRate: loyaltyResult.pointEarnRate!,
+          ledgerEntryId: loyaltyResult.ledgerEntryId!,
+          phoneMasked: loyaltyResult.phoneMasked!,
+          name: loyaltyResult.name,
+          publicMemberId: loyaltyResult.publicMemberId,
+          progressMessage: loyaltyResult.receiptProgress.progressMessage,
+          memberPortalUrl: loyaltyResult.memberPortalUrl,
+          nextRewardName: loyaltyResult.receiptProgress.nextReward?.name,
+          nextRewardPointsRemaining: loyaltyResult.receiptProgress.nextReward?.pointsRemaining,
+        });
+        await this.deps.orderRepository.save(finalOrder);
+      }
 
       for (const event of paid.clearDomainEvents()) {
         await this.deps.eventPublisher.publish(event, session);
       }
 
-      return { order: paid, loyalty };
+      return { order: finalOrder, loyalty: loyaltyResult };
     });
 
     await this.deps.outboxDispatcher.dispatchPending();
@@ -347,10 +614,13 @@ export class PosService {
 
   /**
    * Loyalty orchestration inside an active pay UoW session.
-   * Non-fatal skips never throw LOYALTY_PROGRAM_DISABLED into payment.
-   * Fatal earn failures propagate and abort the whole payment transaction.
+   * Non-fatal skips never throw LOYALTY_PROGRAM_DISABLED into payment
+   * — unless a redemption intent was already committed (handled before earn).
    */
-  private async applyLoyaltyEarnInActiveSession(paid: Order): Promise<LoyaltyPayResult> {
+  private async applyLoyaltyEarnInActiveSession(
+    paid: Order,
+    redemption?: LoyaltyRedemptionPaySnapshot,
+  ): Promise<LoyaltyPayResult> {
     const snapshot = paid.customerSnapshot;
     const customerId = paid.customerId;
 
@@ -394,12 +664,27 @@ export class PosService {
       paymentId: `pay_${paid.id}`,
     });
 
+    const receiptProgress = await loyalty.receiptProgressService.buildForBalance(
+      earn.balanceAfter,
+    );
+
+    let memberPortalUrl: string | undefined;
+    const env = getEnv();
+    if (env.LOYALTY_RECEIPT_QR_ENABLED && env.PUBLIC_APP_URL) {
+      try {
+        memberPortalUrl = buildMemberPortalUrl(env.PUBLIC_APP_URL, customer.publicMemberId);
+      } catch {
+        memberPortalUrl = undefined;
+      }
+    }
+
     return {
       memberAttached: true,
       awarded: true,
       customerId: earn.customerId,
       phoneMasked: snapshot.phoneMasked,
       name: snapshot.name,
+      publicMemberId: customer.publicMemberId,
       pointsEarned: earn.pointsEarned,
       balanceAfter: earn.balanceAfter,
       eligiblePaidAmount: earn.eligiblePaidAmount,
@@ -408,6 +693,9 @@ export class PosService {
       pointEarnRate: earn.pointEarnRate,
       ledgerEntryId: earn.ledgerEntryId,
       alreadyProcessed: earn.alreadyProcessed,
+      receiptProgress,
+      memberPortalUrl,
+      redemption,
     };
   }
 

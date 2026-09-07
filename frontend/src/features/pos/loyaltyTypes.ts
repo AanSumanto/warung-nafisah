@@ -10,6 +10,18 @@ export interface OrderCustomerSnapshot {
   readonly name?: string;
 }
 
+export interface LoyaltyReceiptProgress {
+  readonly eligibleRewardCount: number;
+  readonly hasRedeemableThreshold: boolean;
+  readonly nextReward?: {
+    readonly rewardCode: string;
+    readonly name: string;
+    readonly pointsRequired: number;
+    readonly pointsRemaining: number;
+  };
+  readonly progressMessage: string;
+}
+
 export interface LoyaltyPayResult {
   readonly memberAttached: boolean;
   readonly awarded: boolean;
@@ -17,6 +29,7 @@ export interface LoyaltyPayResult {
   readonly customerId?: string;
   readonly phoneMasked?: string;
   readonly name?: string;
+  readonly publicMemberId?: string;
   readonly pointsEarned?: number;
   readonly balanceAfter?: number;
   readonly eligiblePaidAmount?: number;
@@ -25,6 +38,34 @@ export interface LoyaltyPayResult {
   readonly pointEarnRate?: number;
   readonly ledgerEntryId?: string;
   readonly alreadyProcessed?: boolean;
+  readonly receiptProgress?: LoyaltyReceiptProgress;
+  readonly memberPortalUrl?: string;
+  readonly redemption?: {
+    readonly rewardCode: string;
+    readonly rewardName: string;
+    readonly menuKode: string;
+    readonly pointsUsed: number;
+    readonly rewardHppSnapshot: number;
+    readonly ledgerEntryId: string;
+    readonly balanceAfter: number;
+  };
+}
+
+export interface CashierRewardOption {
+  readonly rewardCode: string;
+  readonly name: string;
+  readonly pointsRequired: number;
+  readonly eligible: boolean;
+  readonly availability: 'AVAILABLE' | 'TEMPORARILY_UNAVAILABLE';
+  readonly pointsRemaining?: number;
+}
+
+export interface OrderRewardsResponse {
+  readonly currentPoints: number;
+  readonly phoneMasked: string;
+  readonly name?: string;
+  readonly selectedRewardCode?: string;
+  readonly rewards: readonly CashierRewardOption[];
 }
 
 export interface CustomerSummary {

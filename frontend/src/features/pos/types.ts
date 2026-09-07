@@ -37,6 +37,10 @@ export interface OrderItem {
   readonly qty: number;
   readonly subtotal: number;
   readonly note?: string;
+  readonly lineKind?: 'PAID' | 'REWARD';
+  readonly rewardCode?: string;
+  readonly rewardHppSnapshot?: number;
+  readonly pointsUsed?: number;
 }
 
 export interface Order {
@@ -58,6 +62,12 @@ export interface Order {
     readonly customerId: string;
     readonly phoneMasked: string;
     readonly name?: string;
+  };
+  readonly loyaltyRedemptionIntent?: {
+    readonly rewardCode: string;
+    readonly customerId: string;
+    readonly selectedAt: string;
+    readonly selectedBy: string;
   };
   readonly loyalty?: import('./loyaltyTypes').LoyaltyPayResult;
   readonly createdAt: string;

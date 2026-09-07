@@ -4,6 +4,9 @@ import { LoyaltyProgramService } from '../../application/loyalty/LoyaltyProgramS
 import { RewardCatalogService } from '../../application/loyalty/RewardCatalogService.js';
 import { LoyaltyConfigInstaller } from '../../application/loyalty/LoyaltyConfigInstaller.js';
 import { LoyaltyEarnService } from '../../application/loyalty/LoyaltyEarnService.js';
+import { LoyaltyReceiptProgressService } from '../../application/loyalty/LoyaltyReceiptProgressService.js';
+import { LoyaltyRedemptionService } from '../../application/loyalty/LoyaltyRedemptionService.js';
+import { PublicMemberRewardsService } from '../../application/loyalty/PublicMemberRewardsService.js';
 import { getCustomerModel } from './documents/CustomerDocument.js';
 import { getLoyaltyProgramModel } from './documents/LoyaltyProgramDocument.js';
 import { getLoyaltyRewardModel } from './documents/LoyaltyRewardDocument.js';
@@ -57,6 +60,24 @@ export function createLoyaltyModule(unitOfWork = new MongoUnitOfWork()) {
     programRepository,
     unitOfWork,
   );
+  const loyaltyReceiptProgressService = new LoyaltyReceiptProgressService(
+    rewardRepository,
+    menuLookup,
+  );
+  const publicMemberRewardsService = new PublicMemberRewardsService(
+    customerRepository,
+    programRepository,
+    rewardRepository,
+    menuLookup,
+    ledgerRepository,
+  );
+  const loyaltyRedemptionService = new LoyaltyRedemptionService(
+    customerRepository,
+    ledgerRepository,
+    programRepository,
+    rewardRepository,
+    menuLookup,
+  );
 
   return {
     unitOfWork,
@@ -64,11 +85,15 @@ export function createLoyaltyModule(unitOfWork = new MongoUnitOfWork()) {
     programRepository,
     rewardRepository,
     ledgerRepository,
+    menuLookup,
     customerService,
     loyaltyProgramService,
     rewardCatalogService,
     loyaltyConfigInstaller,
     loyaltyEarnService,
+    loyaltyReceiptProgressService,
+    publicMemberRewardsService,
+    loyaltyRedemptionService,
   };
 }
 

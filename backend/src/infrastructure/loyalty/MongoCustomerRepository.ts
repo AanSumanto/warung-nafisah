@@ -4,6 +4,8 @@ import type { Customer } from '../../domain/loyalty/Customer.js';
 import type {
   CustomerEarnMutation,
   CustomerEarnMutationResult,
+  CustomerRedeemMutation,
+  CustomerRedeemMutationResult,
   ICustomerRepository,
 } from '../../domain/loyalty/ICustomerRepository.js';
 import { FilterObject } from '../../application/common/Filter.js';
@@ -86,6 +88,42 @@ export class MongoCustomerRepository implements ICustomerRepository {
       totalSpending: updated.totalSpending,
       transactionCount: updated.transactionCount,
       lastTransactionAt: updated.lastTransactionAt as Date,
+    };
+  }
+
+  async applyRedeemMutation(
+    customerId: Identifier,
+    mutation: CustomerRedeemMutation,
+  ): Promise<CustomerRedeemMutationResult> {
+    if (!Number.isInteger(mutation.pointsRequired) || mutation.pointsRequired < 1) {
+      throw new Error('CUSTOMER_REDEEM_INVALID_POINTS');
+    }
+    const session = this.getActiveSession?.() ?? null;
+    const updated = await this.model
+      .findOneAndUpdate(
+        {
+          _id: customerId,
+          status: 'active',
+          currentPoints: { $gte: mutation.pointsRequired },
+        },
+        {
+          $inc: {
+            currentPoints: -mutation.pointsRequired,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, session },
+      )
+      .lean();
+
+    if (!updated) {
+      throw new Error('CUSTOMER_REDEEM_MUTATION_FAILED');
+    }
+
+    return {
+      currentPoints: updated.currentPoints,
     };
   }
 }

@@ -15,12 +15,7 @@ export interface LoyaltyLedgerDocument extends TimestampDocument {
     programVersion: number;
     pointEarnRate: number;
   };
-  metadata: {
-    eligiblePaidAmount: number;
-    orderId: string;
-    paymentId?: string;
-    calculationVersion: string;
-  };
+  metadata: Record<string, unknown>;
   actor: {
     type: 'SYSTEM' | 'USER';
     userId?: string;
@@ -48,14 +43,8 @@ const loyaltyLedgerSchema = new Schema<LoyaltyLedgerDocument>(
       _id: false,
     },
     metadata: {
-      type: {
-        eligiblePaidAmount: { type: Number, required: true },
-        orderId: { type: String, required: true },
-        paymentId: { type: String },
-        calculationVersion: { type: String, required: true },
-      },
+      type: Schema.Types.Mixed,
       required: true,
-      _id: false,
     },
     actor: {
       type: new Schema(

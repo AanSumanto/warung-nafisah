@@ -35,8 +35,9 @@ import {
   type DiningType,
 } from '@/features/pos';
 import { useQuery } from '@tanstack/react-query';
-import { attachOrderCustomer, fetchLoyaltyPosUi, loyaltyPosQueryKeys } from '@/features/pos/loyaltyApi';
+import { attachOrderCustomer, fetchLoyaltyPosUi, loyaltyPosQueryKeys, setOrderReward } from '@/features/pos/loyaltyApi';
 import type { PosMemberSelection } from '@/features/pos/loyaltyTypes';
+import { RewardSection } from '@/features/pos/components/RewardSection';
 
 function usePosCart() {
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -129,6 +130,7 @@ export default function PosPage() {
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [member, setMember] = useState<PosMemberSelection | null>(null);
   const [memberSheetOpen, setMemberSheetOpen] = useState(false);
+  const [selectedRewardCode, setSelectedRewardCode] = useState<string | null>(null);
 
   const { data: loyaltyPosUi } = useQuery({
     queryKey: loyaltyPosQueryKeys.posUi,
@@ -136,6 +138,7 @@ export default function PosPage() {
     staleTime: 60_000,
   });
   const memberUiEnabled = Boolean(loyaltyPosUi?.memberUiEnabled);
+  const redemptionEnabled = Boolean(loyaltyPosUi?.redemptionEnabled) && memberUiEnabled;
 
   const cartState = usePosCart();
   const createOrderMutation = useCreateOrder();
@@ -146,12 +149,23 @@ export default function PosPage() {
     createOrderMutation.isPending || updateItemsMutation.isPending || payOrderMutation.isPending;
 
   const memberSlot = (
-    <MemberSection
-      enabled={memberUiEnabled}
-      member={member}
-      onSearch={() => setMemberSheetOpen(true)}
-      onClear={() => setMember(null)}
-    />
+    <>
+      <MemberSection
+        enabled={memberUiEnabled}
+        member={member}
+        onSearch={() => setMemberSheetOpen(true)}
+        onClear={() => {
+          setMember(null);
+          setSelectedRewardCode(null);
+        }}
+      />
+      <RewardSection
+        enabled={redemptionEnabled}
+        customerId={member?.customerId ?? null}
+        selectedRewardCode={selectedRewardCode}
+        onSelect={setSelectedRewardCode}
+      />
+    </>
   );
 
   const handlePay = async (paymentMethod: PaymentMethod, paidAmount: number) => {
@@ -172,6 +186,9 @@ export default function PosPage() {
 
       if (memberUiEnabled && member) {
         await attachOrderCustomer(updated.id, member.customerId);
+        if (redemptionEnabled && selectedRewardCode) {
+          await setOrderReward(updated.id, selectedRewardCode);
+        }
       }
 
       const paid = await payOrderMutation.mutateAsync({
@@ -183,10 +200,16 @@ export default function PosPage() {
       setCartOpen(false);
       cartState.clear();
       setMember(null);
+      setSelectedRewardCode(null);
       setPaidOrder(paid);
       setReceiptPreviewOpen(true);
 
-      if (paid.loyalty?.awarded && typeof paid.loyalty.pointsEarned === 'number') {
+      if (paid.loyalty?.redemption && paid.loyalty.awarded) {
+        enqueueSnackbar(
+          `Pembayaran berhasil · reward ${paid.loyalty.redemption.rewardName} · +${paid.loyalty.pointsEarned} poin (total ${paid.loyalty.balanceAfter})`,
+          { variant: 'success' },
+        );
+      } else if (paid.loyalty?.awarded && typeof paid.loyalty.pointsEarned === 'number') {
         enqueueSnackbar(
           `Pembayaran berhasil · +${paid.loyalty.pointsEarned} poin (total ${paid.loyalty.balanceAfter})`,
           { variant: 'success' },
@@ -235,8 +258,14 @@ export default function PosPage() {
       <MemberLookupSheet
         open={memberSheetOpen}
         onClose={() => setMemberSheetOpen(false)}
-        onSelect={setMember}
-        onSkip={() => setMember(null)}
+        onSelect={(selection) => {
+          setMember(selection);
+          setSelectedRewardCode(null);
+        }}
+        onSkip={() => {
+          setMember(null);
+          setSelectedRewardCode(null);
+        }}
       />
 
       <PaymentBottomSheet

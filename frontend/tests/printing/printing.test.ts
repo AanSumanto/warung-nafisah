@@ -347,3 +347,271 @@ describe('printer profile', () => {
     expect(BLUEPRINT_BP_ECO58.protocol).toBe('ESC_POS');
   });
 });
+
+describe('LOYALTY-05 member receipt', () => {
+  const memberLoyalty = {
+    memberAttached: true,
+    awarded: true as const,
+    phoneMasked: '08******123',
+    name: 'Aan',
+    publicMemberId: 'abcdefghijklmnopqrstuvwx',
+    pointsEarned: 4,
+    balanceAfter: 27,
+    eligiblePaidAmount: 20_000,
+    programVersion: 1,
+    pointEarnRate: 5000,
+    ledgerEntryId: 'led-1',
+    receiptProgress: {
+      eligibleRewardCount: 1,
+      hasRedeemableThreshold: true,
+      progressMessage: 'Tinggal 3 poin lagi untuk Gratis Nasi Putih',
+      nextReward: {
+        rewardCode: 'REWARD_NASI_PUTIH',
+        name: 'Nasi Putih',
+        pointsRequired: 30,
+        pointsRemaining: 3,
+      },
+    },
+  };
+
+  it('nonmember golden: no loyalty section or QR', () => {
+    const receipt = ReceiptBuilder.build(sampleOrder);
+    expect(receipt.loyalty).toBeUndefined();
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    const text = lines.map((l) => l.text ?? '').join('\n');
+    expect(text).not.toContain('NAFISAH REWARDS');
+    expect(text).not.toContain('Poin transaksi');
+    expect(lines.some((l) => l.kind === 'qr')).toBe(false);
+    expect(lines.length).toBeLessThanOrEqual(18);
+  });
+
+  it('member awarded receipt shows masked identity and progress', () => {
+    const receipt = ReceiptBuilder.build({ ...sampleOrder, loyalty: memberLoyalty });
+    expect(receipt.loyalty?.pointsEarned).toBe(4);
+    expect(receipt.loyalty?.balanceAfter).toBe(27);
+    expect(receipt.loyalty?.phoneMasked).toBe('08******123');
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    const text = lines.map((l) => `${l.text ?? ''} ${l.left ?? ''} ${l.right ?? ''}`).join('\n');
+    expect(text).toContain('NAFISAH REWARDS');
+    expect(text).toContain('Aan');
+    expect(text).toContain('08******123');
+    expect(text).toContain('+4');
+    expect(text).toContain('27');
+    expect(text).toContain('3 poin');
+    expect(text).not.toMatch(/081234567123|phoneNormalized|customerId/);
+  });
+
+  it('does not invent loyalty when program disabled', () => {
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        memberAttached: true,
+        awarded: false,
+        reason: 'PROGRAM_DISABLED',
+        phoneMasked: '08******123',
+        name: 'Aan',
+      },
+    });
+    expect(receipt.loyalty).toBeUndefined();
+    const text = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58)
+      .map((l) => l.text ?? '')
+      .join('\n');
+    expect(text).not.toContain('NAFISAH REWARDS');
+    expect(text).not.toContain('Poin transaksi');
+  });
+
+  it('blocked / not found omit loyalty block', () => {
+    for (const reason of ['CUSTOMER_BLOCKED', 'CUSTOMER_NOT_FOUND'] as const) {
+      const receipt = ReceiptBuilder.build({
+        ...sampleOrder,
+        loyalty: { memberAttached: true, awarded: false, reason },
+      });
+      expect(receipt.loyalty).toBeUndefined();
+    }
+  });
+
+  it('zero-point awarded sale still prints loyalty section', () => {
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        pointsEarned: 0,
+        balanceAfter: 7,
+        receiptProgress: {
+          eligibleRewardCount: 0,
+          hasRedeemableThreshold: false,
+          progressMessage: 'Kumpulkan poin untuk tukar reward',
+        },
+      },
+    });
+    expect(receipt.loyalty?.pointsEarned).toBe(0);
+    const text = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58)
+      .map((l) => `${l.text ?? ''} ${l.right ?? ''}`)
+      .join('\n');
+    expect(text).toContain('NAFISAH REWARDS');
+    expect(text).toContain('+0');
+    expect(text).toContain('7');
+  });
+
+  it('never calculates points from order.total in ReceiptBuilder', () => {
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      total: 50_000,
+      loyalty: undefined,
+    });
+    expect(receipt.loyalty).toBeUndefined();
+  });
+
+  it('QR gate off: text CTA without QR commands', () => {
+    const receipt = ReceiptBuilder.build({ ...sampleOrder, loyalty: memberLoyalty });
+    expect(receipt.loyalty?.memberPortalUrl).toBeUndefined();
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    expect(lines.some((l) => l.kind === 'qr')).toBe(false);
+    expect(lines.map((l) => l.text).join('\n')).toContain('Cek poin di Nafisah Rewards');
+    const bytes = new EscPosRenderer(BLUEPRINT_BP_ECO58).render(receipt);
+    const decoded = Array.from(bytes)
+      .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
+      .join('');
+    expect(decoded).not.toContain('/rewards/member/');
+  });
+
+  it('QR privacy: portal URL has opaque token only', () => {
+    const portal =
+      'https://app.example.com/rewards/member/abcdefghijklmnopqrstuvwx';
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: { ...memberLoyalty, memberPortalUrl: portal },
+    });
+    expect(receipt.loyalty?.memberPortalUrl).toBe(portal);
+    expect(portal).not.toMatch(/phone|customerId|\?/);
+    const lines = buildReceiptThermalLines(receipt, BLUEPRINT_BP_ECO58);
+    expect(lines.some((l) => l.kind === 'qr' && l.qrPayload === portal)).toBe(true);
+  });
+
+  it('supportsQr=false skips QR binary without failing print', () => {
+    const portal = 'https://app.example.com/rewards/member/abcdefghijklmnopqrstuvwx';
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: { ...memberLoyalty, memberPortalUrl: portal },
+    });
+    const noQrProfile = { ...BLUEPRINT_BP_ECO58, supportsQr: false };
+    const bytes = new EscPosRenderer(noQrProfile).render(receipt);
+    expect(bytes[0]).toBe(0x1b);
+    expect(bytes[1]).toBe(0x40);
+    // GS ( k model select starts 1D 28 6B
+    let hasQrFn = false;
+    for (let i = 0; i < bytes.length - 2; i++) {
+      if (bytes[i] === 0x1d && bytes[i + 1] === 0x28 && bytes[i + 2] === 0x6b) {
+        hasQrFn = true;
+      }
+    }
+    expect(hasQrFn).toBe(false);
+    const decoded = Array.from(bytes)
+      .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
+      .join('');
+    expect(decoded).toContain('NAFISAH REWARDS');
+  });
+
+  it('ESC/POS QR command structure when enabled', () => {
+    const portal = 'https://app.example.com/rewards/member/abcdefghijklmnopqrstuvwx';
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: { ...memberLoyalty, memberPortalUrl: portal },
+    });
+    const bytes = new EscPosRenderer(BLUEPRINT_BP_ECO58).render(receipt);
+    let foundStore = false;
+    for (let i = 0; i < bytes.length - 7; i++) {
+      if (
+        bytes[i] === 0x1d &&
+        bytes[i + 1] === 0x28 &&
+        bytes[i + 2] === 0x6b &&
+        bytes[i + 5] === 0x31 &&
+        bytes[i + 6] === 0x50 &&
+        bytes[i + 7] === 0x30
+      ) {
+        foundStore = true;
+        break;
+      }
+    }
+    expect(foundStore).toBe(true);
+    const decoded = Array.from(bytes)
+      .map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.'))
+      .join('');
+    expect(decoded).toContain(portal);
+  });
+
+  it('preview shows QR placeholder without npm QR library', () => {
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        memberPortalUrl: 'https://app.example.com/rewards/member/abcdefghijklmnopqrstuvwx',
+      },
+    });
+    const preview = buildReceiptPreviewLines(receipt);
+    expect(preview.some((l) => l.kind === 'qr' && l.text?.includes('QR'))).toBe(true);
+  });
+
+  it('long member/reward names wrap without corrupting ESC/POS init', () => {
+    const receipt = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        name: 'Aan Dengan Nama Sangat Panjang Sekali Untuk Thermal',
+        receiptProgress: {
+          ...memberLoyalty.receiptProgress,
+          progressMessage:
+            'Tinggal 3 poin lagi untuk Gratis Model Gandum Spesial Extra Panjang',
+        },
+      },
+    });
+    const bytes = new EscPosRenderer(BLUEPRINT_BP_ECO58).render(receipt);
+    expect(bytes[0]).toBe(0x1b);
+    expect(bytes[1]).toBe(0x40);
+  });
+
+  it('reprint uses receipt snapshot and does not invent earn math', () => {
+    const first = ReceiptBuilder.build({ ...sampleOrder, loyalty: memberLoyalty });
+    const reprint = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        // historical snapshot — must stay 4 / 27 even if UI had newer balance
+        pointsEarned: 4,
+        balanceAfter: 27,
+      },
+    });
+    expect(reprint.loyalty?.pointsEarned).toBe(first.loyalty?.pointsEarned);
+    expect(reprint.loyalty?.balanceAfter).toBe(27);
+  });
+
+  it('exact threshold / above-max wording comes from backend message', () => {
+    const atThreshold = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        balanceAfter: 30,
+        receiptProgress: {
+          eligibleRewardCount: 2,
+          hasRedeemableThreshold: true,
+          progressMessage: 'Kamu sudah bisa tukar reward!',
+        },
+      },
+    });
+    expect(atThreshold.loyalty?.progressMessage).not.toMatch(/Tinggal 0|-/);
+
+    const aboveMax = ReceiptBuilder.build({
+      ...sampleOrder,
+      loyalty: {
+        ...memberLoyalty,
+        balanceAfter: 120,
+        receiptProgress: {
+          eligibleRewardCount: 7,
+          hasRedeemableThreshold: true,
+          progressMessage: 'Reward tersedia — cek pilihan reward',
+        },
+      },
+    });
+    expect(aboveMax.loyalty?.progressMessage).not.toMatch(/-/);
+  });
+});

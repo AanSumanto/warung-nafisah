@@ -10,7 +10,7 @@ export interface PreviewReceiptLine {
   readonly align?: PreviewLineAlign;
   readonly weight?: PreviewLineWeight;
   readonly size?: 'sm' | 'md' | 'lg';
-  readonly kind?: 'separator' | 'text' | 'row';
+  readonly kind?: 'separator' | 'text' | 'row' | 'qr';
   readonly left?: string;
   readonly right?: string;
 }
@@ -18,6 +18,17 @@ export interface PreviewReceiptLine {
 function toPreviewLine(line: CompactReceiptLine): PreviewReceiptLine {
   if (line.kind === 'heavy-separator' || line.kind === 'light-separator') {
     return { text: line.text, kind: 'separator', align: 'center' };
+  }
+
+  if (line.kind === 'qr') {
+    // Preview placeholder — native ESC/POS QR is printer-only (no QR npm dep)
+    return {
+      kind: 'qr',
+      text: '[QR Nafisah Rewards]',
+      align: 'center',
+      weight: 'bold',
+      size: 'md',
+    };
   }
 
   if (line.kind === 'row' && line.left && line.right) {

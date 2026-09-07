@@ -49,6 +49,28 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+    /**
+     * Technical gate for printing member portal QR on receipts.
+     * Default OFF until physical BP-ECO58 QR verification passes
+     * and PUBLIC_APP_URL points at the live portal.
+     */
+    LOYALTY_RECEIPT_QR_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    /**
+     * Technical gate for cashier reward redemption (point deduction + Rp0 line).
+     * Separate from POS member UI and program.enabled. Default OFF.
+     */
+    LOYALTY_REDEMPTION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    /**
+     * Public frontend origin for member portal URLs (e.g. https://pos.example.com).
+     * Required only when LOYALTY_RECEIPT_QR_ENABLED=true.
+     */
+    PUBLIC_APP_URL: z.string().optional().default(''),
   })
   .superRefine((data, ctx) => {
     const origins = validateCorsOrigins(data.CORS_ORIGINS, ctx);

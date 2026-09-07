@@ -15,6 +15,15 @@ export interface CustomerEarnMutationResult {
   readonly lastTransactionAt: Date;
 }
 
+export interface CustomerRedeemMutation {
+  readonly pointsRequired: number;
+  readonly occurredAt: Date;
+}
+
+export interface CustomerRedeemMutationResult {
+  readonly currentPoints: number;
+}
+
 export interface ICustomerRepository {
   save(customer: Customer): Promise<Customer>;
   findById(id: Identifier): Promise<Customer | null>;
@@ -28,4 +37,12 @@ export interface ICustomerRepository {
     customerId: Identifier,
     mutation: CustomerEarnMutation,
   ): Promise<CustomerEarnMutationResult>;
+  /**
+   * Atomic guarded redeem: status active AND currentPoints >= pointsRequired.
+   * Never allows negative balance.
+   */
+  applyRedeemMutation(
+    customerId: Identifier,
+    mutation: CustomerRedeemMutation,
+  ): Promise<CustomerRedeemMutationResult>;
 }

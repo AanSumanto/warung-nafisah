@@ -1,3 +1,5 @@
+import type { LoyaltyReceiptProgress } from '../loyalty/LoyaltyReceiptProgress.js';
+
 export type LoyaltySkipReason =
   | 'NO_MEMBER'
   | 'PROGRAM_DISABLED'
@@ -6,8 +8,18 @@ export type LoyaltySkipReason =
 
 /**
  * Authoritative loyalty outcome of a POS pay.
- * Frontend must not recalculate points.
+ * Frontend / ReceiptBuilder must not recalculate points.
  */
+export interface LoyaltyRedemptionPaySnapshot {
+  readonly rewardCode: string;
+  readonly rewardName: string;
+  readonly menuKode: string;
+  readonly pointsUsed: number;
+  readonly rewardHppSnapshot: number;
+  readonly ledgerEntryId: string;
+  readonly balanceAfter: number;
+}
+
 export interface LoyaltyPayResult {
   readonly memberAttached: boolean;
   readonly awarded: boolean;
@@ -15,6 +27,7 @@ export interface LoyaltyPayResult {
   readonly customerId?: string;
   readonly phoneMasked?: string;
   readonly name?: string;
+  readonly publicMemberId?: string;
   readonly pointsEarned?: number;
   readonly balanceAfter?: number;
   readonly eligiblePaidAmount?: number;
@@ -23,6 +36,10 @@ export interface LoyaltyPayResult {
   readonly pointEarnRate?: number;
   readonly ledgerEntryId?: string;
   readonly alreadyProcessed?: boolean;
+  readonly receiptProgress?: LoyaltyReceiptProgress;
+  /** Present only when receipt QR gate is enabled and PUBLIC_APP_URL is configured. */
+  readonly memberPortalUrl?: string;
+  readonly redemption?: LoyaltyRedemptionPaySnapshot;
 }
 
 export function loyaltyNoMember(): LoyaltyPayResult {

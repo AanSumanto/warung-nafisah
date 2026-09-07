@@ -7,17 +7,30 @@ async function unwrap<T>(promise: Promise<{ data: ApiSuccessResponse<T> }>): Pro
   return response.data.data;
 }
 
-export async function fetchLoyaltyPosUi(): Promise<{ memberUiEnabled: boolean }> {
+export async function fetchLoyaltyPosUi(): Promise<{
+  memberUiEnabled: boolean;
+  receiptQrEnabled: boolean;
+  redemptionEnabled: boolean;
+}> {
   try {
     return await unwrap(
-      apiClient.get<ApiSuccessResponse<{ memberUiEnabled: boolean }>>('/loyalty/pos-ui'),
-    );
+      apiClient.get<
+        ApiSuccessResponse<{
+          memberUiEnabled: boolean;
+          receiptQrEnabled?: boolean;
+          redemptionEnabled?: boolean;
+        }>
+      >('/loyalty/pos-ui'),
+    ).then((data) => ({
+      memberUiEnabled: Boolean(data.memberUiEnabled),
+      receiptQrEnabled: Boolean(data.receiptQrEnabled),
+      redemptionEnabled: Boolean(data.redemptionEnabled),
+    }));
   } catch (error) {
     if (isApiNotFound(error)) {
-      return { memberUiEnabled: false };
+      return { memberUiEnabled: false, receiptQrEnabled: false, redemptionEnabled: false };
     }
-    // Fail closed — hide unfinished member UI
-    return { memberUiEnabled: false };
+    return { memberUiEnabled: false, receiptQrEnabled: false, redemptionEnabled: false };
   }
 }
 
@@ -45,6 +58,21 @@ export async function attachOrderCustomer(
   );
 }
 
+export async function fetchOrderRewards(orderId: string): Promise<import('./loyaltyTypes').OrderRewardsResponse> {
+  return unwrap(
+    apiClient.get(`/orders/${orderId}/rewards`),
+  );
+}
+
+export async function setOrderReward(orderId: string, rewardCode: string): Promise<unknown> {
+  return unwrap(apiClient.put(`/orders/${orderId}/reward`, { rewardCode }));
+}
+
+export async function clearOrderReward(orderId: string): Promise<unknown> {
+  return unwrap(apiClient.delete(`/orders/${orderId}/reward`));
+}
+
 export const loyaltyPosQueryKeys = {
   posUi: ['loyalty', 'pos-ui'] as const,
+  orderRewards: (orderId: string) => ['loyalty', 'order-rewards', orderId] as const,
 };

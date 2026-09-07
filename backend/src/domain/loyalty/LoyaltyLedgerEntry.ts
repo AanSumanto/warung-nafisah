@@ -17,11 +17,24 @@ export interface LoyaltyLedgerActor {
 }
 
 export interface LoyaltyLedgerEarnMetadata {
+  readonly kind: 'EARN_SALE';
   readonly eligiblePaidAmount: number;
   readonly orderId: string;
   readonly paymentId?: string;
   readonly calculationVersion: string;
 }
+
+export interface LoyaltyLedgerRedeemMetadata {
+  readonly kind: 'REDEEM_REWARD';
+  readonly orderId: string;
+  readonly rewardCode: string;
+  readonly rewardName: string;
+  readonly pointsRequired: number;
+  readonly menuKode: string;
+  readonly rewardHppSnapshot: number;
+}
+
+export type LoyaltyLedgerMetadata = LoyaltyLedgerEarnMetadata | LoyaltyLedgerRedeemMetadata;
 
 export interface LoyaltyLedgerEntryProps {
   readonly customerId: string;
@@ -32,7 +45,7 @@ export interface LoyaltyLedgerEntryProps {
   readonly sourceId: string;
   readonly idempotencyKey: string;
   readonly programSnapshot: LoyaltyProgramSnapshot;
-  readonly metadata: LoyaltyLedgerEarnMetadata;
+  readonly metadata: LoyaltyLedgerMetadata;
   readonly actor: LoyaltyLedgerActor;
   readonly occurredAt: Date;
 }
@@ -100,10 +113,86 @@ export class LoyaltyLedgerEntry {
         idempotencyKey: input.idempotencyKey.trim(),
         programSnapshot: { ...input.programSnapshot },
         metadata: {
+          kind: 'EARN_SALE',
           eligiblePaidAmount: input.eligiblePaidAmount,
           orderId: input.sourceOrderId.trim(),
           paymentId: input.paymentId,
           calculationVersion: 'v1',
+        },
+        actor: { ...input.actor },
+        occurredAt: input.occurredAt,
+      },
+      input.createdAt ?? new Date(),
+    );
+  }
+
+  static createRedeemReward(input: {
+    readonly id: string;
+    readonly customerId: string;
+    readonly pointsRequired: number;
+    readonly balanceAfter: number;
+    readonly sourceOrderId: string;
+    readonly idempotencyKey: string;
+    readonly programSnapshot: LoyaltyProgramSnapshot;
+    readonly rewardCode: string;
+    readonly rewardName: string;
+    readonly menuKode: string;
+    readonly rewardHppSnapshot: number;
+    readonly actor: LoyaltyLedgerActor;
+    readonly occurredAt: Date;
+    readonly createdAt?: Date;
+  }): LoyaltyLedgerEntry {
+    if (!input.customerId?.trim()) {
+      throw DomainError.invalidArgument('customerId is required', 'customerId');
+    }
+    if (!Number.isInteger(input.pointsRequired) || input.pointsRequired < 1) {
+      throw DomainError.invalidArgument('pointsRequired must be integer >= 1', 'pointsRequired');
+    }
+    if (!Number.isInteger(input.balanceAfter) || input.balanceAfter < 0) {
+      throw DomainError.invalidArgument('balanceAfter must be integer >= 0', 'balanceAfter');
+    }
+    if (!input.sourceOrderId?.trim()) {
+      throw DomainError.invalidArgument('sourceOrderId is required', 'sourceOrderId');
+    }
+    if (!input.idempotencyKey?.trim() || input.idempotencyKey.length > 200) {
+      throw DomainError.invalidArgument('idempotencyKey is invalid', 'idempotencyKey');
+    }
+    if (!(input.occurredAt instanceof Date) || Number.isNaN(input.occurredAt.getTime())) {
+      throw DomainError.invalidArgument('occurredAt is invalid', 'occurredAt');
+    }
+    if (!input.rewardCode?.trim()) {
+      throw DomainError.invalidArgument('rewardCode is required', 'rewardCode');
+    }
+    if (!input.rewardName?.trim()) {
+      throw DomainError.invalidArgument('rewardName is required', 'rewardName');
+    }
+    if (!input.menuKode?.trim()) {
+      throw DomainError.invalidArgument('menuKode is required', 'menuKode');
+    }
+    if (!Number.isInteger(input.rewardHppSnapshot) || input.rewardHppSnapshot < 0) {
+      throw DomainError.invalidArgument('rewardHppSnapshot invalid', 'rewardHppSnapshot');
+    }
+    LoyaltyLedgerEntry.assertProgramSnapshot(input.programSnapshot);
+
+    return new LoyaltyLedgerEntry(
+      input.id,
+      {
+        customerId: input.customerId.trim(),
+        type: 'REDEEM_REWARD',
+        pointsDelta: -input.pointsRequired,
+        balanceAfter: input.balanceAfter,
+        sourceType: 'REWARD_REDEMPTION',
+        sourceId: input.sourceOrderId.trim(),
+        idempotencyKey: input.idempotencyKey.trim(),
+        programSnapshot: { ...input.programSnapshot },
+        metadata: {
+          kind: 'REDEEM_REWARD',
+          orderId: input.sourceOrderId.trim(),
+          rewardCode: input.rewardCode.trim().toUpperCase(),
+          rewardName: input.rewardName.trim(),
+          pointsRequired: input.pointsRequired,
+          menuKode: input.menuKode.trim().toUpperCase(),
+          rewardHppSnapshot: input.rewardHppSnapshot,
         },
         actor: { ...input.actor },
         occurredAt: input.occurredAt,
@@ -167,7 +256,7 @@ export class LoyaltyLedgerEntry {
     return this.props.programSnapshot;
   }
 
-  get metadata(): LoyaltyLedgerEarnMetadata {
+  get metadata(): LoyaltyLedgerMetadata {
     return this.props.metadata;
   }
 

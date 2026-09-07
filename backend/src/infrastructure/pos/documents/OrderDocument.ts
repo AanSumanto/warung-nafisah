@@ -13,12 +13,49 @@ export interface OrderItemEmbedded {
   qty: number;
   subtotal: number;
   note?: string;
+  lineKind?: 'PAID' | 'REWARD';
+  rewardCode?: string;
+  rewardHppSnapshot?: number;
+  pointsUsed?: number;
 }
 
 export interface OrderCustomerSnapshotEmbedded {
   customerId: string;
   phoneMasked: string;
   name?: string;
+}
+
+export interface OrderLoyaltyReceiptEmbedded {
+  awarded: true;
+  pointsEarned: number;
+  balanceAfter: number;
+  eligiblePaidAmount: number;
+  programVersion: number;
+  pointEarnRate: number;
+  ledgerEntryId: string;
+  phoneMasked: string;
+  name?: string;
+  publicMemberId: string;
+  progressMessage: string;
+  memberPortalUrl?: string;
+  nextRewardName?: string;
+  nextRewardPointsRemaining?: number;
+  redemption?: {
+    rewardCode: string;
+    rewardName: string;
+    menuKode: string;
+    pointsUsed: number;
+    rewardHppSnapshot: number;
+    ledgerEntryId: string;
+    balanceAfter: number;
+  };
+}
+
+export interface OrderLoyaltyRedemptionIntentEmbedded {
+  rewardCode: string;
+  customerId: string;
+  selectedAt: Date;
+  selectedBy: string;
 }
 
 export interface OrderDocument extends TimestampDocument {
@@ -37,6 +74,8 @@ export interface OrderDocument extends TimestampDocument {
   /** Optional — historical orders omit these fields. */
   customerId?: string | null;
   customerSnapshot?: OrderCustomerSnapshotEmbedded | null;
+  loyaltyReceipt?: OrderLoyaltyReceiptEmbedded | null;
+  loyaltyRedemptionIntent?: OrderLoyaltyRedemptionIntentEmbedded | null;
 }
 
 const orderItemSchema = new Schema<OrderItemEmbedded>(
@@ -51,6 +90,10 @@ const orderItemSchema = new Schema<OrderItemEmbedded>(
     qty: { type: Number, required: true },
     subtotal: { type: Number, required: true },
     note: { type: String },
+    lineKind: { type: String },
+    rewardCode: { type: String },
+    rewardHppSnapshot: { type: Number },
+    pointsUsed: { type: Number },
   },
   { _id: false },
 );
@@ -76,6 +119,49 @@ const orderSchema = new Schema<OrderDocument>(
         customerId: { type: String, required: true },
         phoneMasked: { type: String, required: true },
         name: { type: String },
+      },
+      required: false,
+      _id: false,
+    },
+    loyaltyReceipt: {
+      type: {
+        awarded: { type: Boolean, required: true },
+        pointsEarned: { type: Number, required: true },
+        balanceAfter: { type: Number, required: true },
+        eligiblePaidAmount: { type: Number, required: true },
+        programVersion: { type: Number, required: true },
+        pointEarnRate: { type: Number, required: true },
+        ledgerEntryId: { type: String, required: true },
+        phoneMasked: { type: String, required: true },
+        name: { type: String },
+        publicMemberId: { type: String, required: true },
+        progressMessage: { type: String, required: true },
+        memberPortalUrl: { type: String },
+        nextRewardName: { type: String },
+        nextRewardPointsRemaining: { type: Number },
+        redemption: {
+          type: {
+            rewardCode: { type: String, required: true },
+            rewardName: { type: String, required: true },
+            menuKode: { type: String, required: true },
+            pointsUsed: { type: Number, required: true },
+            rewardHppSnapshot: { type: Number, required: true },
+            ledgerEntryId: { type: String, required: true },
+            balanceAfter: { type: Number, required: true },
+          },
+          required: false,
+          _id: false,
+        },
+      },
+      required: false,
+      _id: false,
+    },
+    loyaltyRedemptionIntent: {
+      type: {
+        rewardCode: { type: String, required: true },
+        customerId: { type: String, required: true },
+        selectedAt: { type: Date, required: true },
+        selectedBy: { type: String, required: true },
       },
       required: false,
       _id: false,

@@ -41,9 +41,15 @@ export function createApp(): express.Application {
           if (headers.authorization) {
             headers.authorization = '[REDACTED]';
           }
+          // Bearer-like publicMemberId in path — never log full token
+          const rawUrl = typeof req.url === 'string' ? req.url : '';
+          const url = rawUrl.replace(
+            /\/public\/rewards\/member\/[^/?#]+/gi,
+            '/public/rewards/member/[REDACTED]',
+          );
           return {
             method: req.method,
-            url: req.url,
+            url,
             headers,
           };
         },

@@ -11,4 +11,6 @@ export interface MenuReference {
 
 export interface IMenuReferenceLookup {
   findByKodeMenu(kodeMenu: string): Promise<MenuReference | null>;
+  /** Batch lookup — avoids N+1 for portal/catalog projections. */
+  findByKodeMenus(kodeMenus: readonly string[]): Promise<Map<string, MenuReference>>;
 }

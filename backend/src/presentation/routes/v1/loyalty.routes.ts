@@ -54,6 +54,8 @@ export function createLoyaltyConfigRouter(
     try {
       return ResponseWrapper.success(res, {
         memberUiEnabled: getEnv().LOYALTY_POS_UI_ENABLED,
+        receiptQrEnabled: getEnv().LOYALTY_RECEIPT_QR_ENABLED,
+        redemptionEnabled: getEnv().LOYALTY_REDEMPTION_ENABLED,
       });
     } catch (error) {
       next(error);

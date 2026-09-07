@@ -10,4 +10,9 @@ export interface ILoyaltyLedgerRepository {
   findBySource(sourceType: string, sourceId: string): Promise<LoyaltyLedgerEntry[]>;
   sumPointsDelta(customerId: string): Promise<number>;
   listByCustomer(customerId: string): Promise<LoyaltyLedgerEntry[]>;
+  /**
+   * Recent entries for a customer (newest first).
+   * Uses { customerId, occurredAt } index — bounded limit required.
+   */
+  listRecentByCustomer(customerId: string, limit: number): Promise<LoyaltyLedgerEntry[]>;
 }

@@ -44,6 +44,10 @@ const attachCustomerSchema = z.object({
   customerId: z.string().trim().min(1).max(64),
 });
 
+const setRewardSchema = z.object({
+  rewardCode: z.string().trim().min(3).max(48),
+});
+
 const openShiftSchema = z.object({
   openingCash: z.number().int().nonnegative(),
 });
@@ -89,6 +93,50 @@ function param(value: string | string[]): string {
   return Array.isArray(value) ? value[0]! : value;
 }
 
+function mapLoyaltyFromReceipt(order: Awaited<ReturnType<PosService['getOrder']>>) {
+  const receipt = order.loyaltyReceipt;
+  if (!receipt) return undefined;
+  return {
+    memberAttached: true,
+    awarded: true as const,
+    phoneMasked: receipt.phoneMasked,
+    name: receipt.name,
+    publicMemberId: receipt.publicMemberId,
+    pointsEarned: receipt.pointsEarned,
+    balanceAfter: receipt.balanceAfter,
+    eligiblePaidAmount: receipt.eligiblePaidAmount,
+    programVersion: receipt.programVersion,
+    pointEarnRate: receipt.pointEarnRate,
+    ledgerEntryId: receipt.ledgerEntryId,
+    memberPortalUrl: receipt.memberPortalUrl,
+    receiptProgress: {
+      eligibleRewardCount: 0,
+      hasRedeemableThreshold: true,
+      progressMessage: receipt.progressMessage,
+      nextReward:
+        receipt.nextRewardName !== undefined && receipt.nextRewardPointsRemaining !== undefined
+          ? {
+              rewardCode: '',
+              name: receipt.nextRewardName,
+              pointsRequired: receipt.balanceAfter + receipt.nextRewardPointsRemaining,
+              pointsRemaining: receipt.nextRewardPointsRemaining,
+            }
+          : undefined,
+    },
+    redemption: receipt.redemption
+      ? {
+          rewardCode: receipt.redemption.rewardCode,
+          rewardName: receipt.redemption.rewardName,
+          menuKode: receipt.redemption.menuKode,
+          pointsUsed: receipt.redemption.pointsUsed,
+          rewardHppSnapshot: receipt.redemption.rewardHppSnapshot,
+          ledgerEntryId: receipt.redemption.ledgerEntryId,
+          balanceAfter: receipt.redemption.balanceAfter,
+        }
+      : undefined,
+  };
+}
+
 function mapOrder(order: Awaited<ReturnType<PosService['getOrder']>>) {
   return {
     id: order.id,
@@ -112,6 +160,15 @@ function mapOrder(order: Awaited<ReturnType<PosService['getOrder']>>) {
           name: order.customerSnapshot.name,
         }
       : undefined,
+    loyaltyRedemptionIntent: order.loyaltyRedemptionIntent
+      ? {
+          rewardCode: order.loyaltyRedemptionIntent.rewardCode,
+          customerId: order.loyaltyRedemptionIntent.customerId,
+          selectedAt: order.loyaltyRedemptionIntent.selectedAt.toISOString(),
+          selectedBy: order.loyaltyRedemptionIntent.selectedBy,
+        }
+      : undefined,
+    loyalty: mapLoyaltyFromReceipt(order),
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   };
@@ -254,6 +311,48 @@ export function createPosRouter(posService: PosService, authService: AuthService
   router.delete('/orders/:orderId/customer', auth, async (req, res, next) => {
     try {
       const order = await posService.clearOrderCustomer(param(req.params.orderId), req.user!);
+      return ResponseWrapper.success(res, mapOrder(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/orders/:orderId/rewards', auth, async (req, res, next) => {
+    try {
+      const data = await posService.listOrderRewards(param(req.params.orderId), req.user!);
+      return ResponseWrapper.success(res, data);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/loyalty/member-rewards/:customerId', auth, async (req, res, next) => {
+    try {
+      const data = await posService.listMemberRewards(param(req.params.customerId), req.user!);
+      return ResponseWrapper.success(res, data);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put('/orders/:orderId/reward', auth, async (req, res, next) => {
+    try {
+      const parsed = setRewardSchema.safeParse(req.body);
+      if (!parsed.success) throw new ValidationException('rewardCode tidak valid');
+      const order = await posService.setOrderReward(
+        param(req.params.orderId),
+        parsed.data.rewardCode,
+        req.user!,
+      );
+      return ResponseWrapper.success(res, mapOrder(order));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/orders/:orderId/reward', auth, async (req, res, next) => {
+    try {
+      const order = await posService.clearOrderReward(param(req.params.orderId), req.user!);
       return ResponseWrapper.success(res, mapOrder(order));
     } catch (error) {
       next(error);

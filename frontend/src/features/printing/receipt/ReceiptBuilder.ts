@@ -1,6 +1,7 @@
 import type { Order } from '@/features/pos/types';
 import { DINING_TYPE_LABELS, PAYMENT_METHOD_LABELS } from '@/features/pos/constants';
-import type { Receipt, ReceiptBusinessConfig } from '../types/receipt';
+import type { LoyaltyPayResult } from '@/features/pos/loyaltyTypes';
+import type { Receipt, ReceiptBusinessConfig, ReceiptLoyalty } from '../types/receipt';
 
 export interface OrderLike {
   readonly orderNumber: string;
@@ -19,7 +20,9 @@ export interface OrderLike {
     readonly hargaJual: number;
     readonly subtotal: number;
     readonly note?: string;
+    readonly lineKind?: 'PAID' | 'REWARD';
   }>;
+  readonly loyalty?: LoyaltyPayResult;
 }
 
 const DEFAULT_CONFIG: Required<ReceiptBusinessConfig> = {
@@ -32,8 +35,38 @@ const DEFAULT_CONFIG: Required<ReceiptBusinessConfig> = {
 };
 
 /**
+ * Map authoritative backend loyalty into receipt section.
+ * Only awarded=true produces loyalty content (disabled/blocked omitted).
+ */
+export function mapLoyaltyForReceipt(loyalty?: LoyaltyPayResult): ReceiptLoyalty | undefined {
+  if (!loyalty?.awarded) return undefined;
+  if (typeof loyalty.pointsEarned !== 'number' || typeof loyalty.balanceAfter !== 'number') {
+    return undefined;
+  }
+  if (!loyalty.phoneMasked?.trim()) return undefined;
+
+  return {
+    phoneMasked: loyalty.phoneMasked.trim(),
+    memberName: loyalty.name?.trim() || undefined,
+    pointsEarned: loyalty.pointsEarned,
+    balanceAfter: loyalty.balanceAfter,
+    progressMessage:
+      loyalty.receiptProgress?.progressMessage?.trim() ||
+      'Kumpulkan poin untuk tukar reward',
+    memberPortalUrl: loyalty.memberPortalUrl?.trim() || undefined,
+    redemption: loyalty.redemption
+      ? {
+          rewardName: loyalty.redemption.rewardName,
+          pointsUsed: loyalty.redemption.pointsUsed,
+        }
+      : undefined,
+  };
+}
+
+/**
  * Builds Receipt Object from Order aggregate snapshot.
  * No knowledge of HTML, Bluetooth, ESC/POS, or printers.
+ * Never calculates points from order.total.
  */
 export class ReceiptBuilder {
   static build(order: OrderLike, config: Partial<ReceiptBusinessConfig> = {}): Receipt {
@@ -41,6 +74,7 @@ export class ReceiptBuilder {
     const grandTotal = order.total;
     const paidAmount = order.paidAmount ?? grandTotal;
     const changeAmount = order.changeAmount ?? Math.max(0, paidAmount - grandTotal);
+    const loyalty = mapLoyaltyForReceipt(order.loyalty);
 
     return {
       businessName: merged.businessName,
@@ -61,6 +95,7 @@ export class ReceiptBuilder {
         hargaJual: item.hargaJual,
         subtotal: item.subtotal,
         note: item.note,
+        lineKind: item.lineKind ?? 'PAID',
       })),
       subtotal: grandTotal,
       discount: 0,
@@ -70,6 +105,7 @@ export class ReceiptBuilder {
       changeAmount,
       footerMessage: merged.footerMessage,
       paperWidth: merged.paperWidth,
+      ...(loyalty ? { loyalty } : {}),
     };
   }
 }

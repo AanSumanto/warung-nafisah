@@ -266,6 +266,11 @@ export class LoyaltyEarnService {
         code: 'LOYALTY_EARN_CONFLICT',
       });
     }
+    if (existing.metadata.kind !== 'EARN_SALE') {
+      throw new ValidationException('Order sudah diproses dengan tipe ledger berbeda', {
+        code: 'LOYALTY_EARN_CONFLICT',
+      });
+    }
     if (existing.metadata.eligiblePaidAmount !== input.eligiblePaidAmount) {
       throw new ValidationException(
         'Order sudah diproses dengan eligiblePaidAmount berbeda',

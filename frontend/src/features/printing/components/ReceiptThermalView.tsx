@@ -22,6 +22,24 @@ function PreviewLine({ line }: { readonly line: PreviewReceiptLine }) {
     );
   }
 
+  if (line.kind === 'qr') {
+    return (
+      <Box
+        sx={{
+          my: 1,
+          py: 1.5,
+          border: '1px dashed',
+          borderColor: 'divider',
+          textAlign: 'center',
+          fontSize: '0.7rem',
+          color: 'text.secondary',
+        }}
+      >
+        {line.text ?? '[QR Nafisah Rewards]'}
+      </Box>
+    );
+  }
+
   if (line.kind === 'row' && line.left && line.right) {
     const isBold = line.weight === 'bold' || line.size === 'lg';
     return (

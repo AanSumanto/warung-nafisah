@@ -347,6 +347,7 @@ describe('LoyaltyEarnService', () => {
       findBySource: (t, id) => ledgerRepository.findBySource(t, id),
       sumPointsDelta: (id) => ledgerRepository.sumPointsDelta(id),
       listByCustomer: (id) => ledgerRepository.listByCustomer(id),
+      listRecentByCustomer: (id, limit) => ledgerRepository.listRecentByCustomer(id, limit),
     };
 
     const failingEarn = new LoyaltyEarnService(
@@ -386,6 +387,7 @@ describe('LoyaltyEarnService', () => {
       findBySource: (t, id) => ledgerRepository.findBySource(t, id),
       sumPointsDelta: (id) => ledgerRepository.sumPointsDelta(id),
       listByCustomer: (id) => ledgerRepository.listByCustomer(id),
+      listRecentByCustomer: (id, limit) => ledgerRepository.listRecentByCustomer(id, limit),
     };
 
     const failingEarn = new LoyaltyEarnService(
