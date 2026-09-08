@@ -22,6 +22,12 @@ export class MongoLoyaltyLedgerRepository implements ILoyaltyLedgerRepository {
     return entry;
   }
 
+  async findById(id: string): Promise<LoyaltyLedgerEntry | null> {
+    const session = this.getActiveSession?.() ?? null;
+    const doc = await this.model.findById(id).session(session).lean();
+    return doc ? this.mapper.toDomain(doc) : null;
+  }
+
   async findByIdempotencyKey(key: string): Promise<LoyaltyLedgerEntry | null> {
     const session = this.getActiveSession?.() ?? null;
     const doc = await this.model.findOne({ idempotencyKey: key }).session(session).lean();
@@ -67,6 +73,34 @@ export class MongoLoyaltyLedgerRepository implements ILoyaltyLedgerRepository {
       .session(session)
       .sort({ occurredAt: -1, createdAt: -1 })
       .limit(safeLimit)
+      .lean();
+    return docs.map((d) => this.mapper.toDomain(d));
+  }
+
+  async listPageByCustomer(input: {
+    readonly customerId: string;
+    readonly limit: number;
+    readonly beforeOccurredAt?: Date;
+    readonly beforeId?: string;
+    readonly type?: string;
+  }): Promise<LoyaltyLedgerEntry[]> {
+    const safeLimit = Math.min(Math.max(1, Math.floor(input.limit)), 50);
+    const session = this.getActiveSession?.() ?? null;
+    const filter: Record<string, unknown> = { customerId: input.customerId };
+    if (input.type) {
+      filter.type = input.type;
+    }
+    if (input.beforeOccurredAt && input.beforeId) {
+      filter.$or = [
+        { occurredAt: { $lt: input.beforeOccurredAt } },
+        { occurredAt: input.beforeOccurredAt, _id: { $lt: input.beforeId } },
+      ];
+    }
+    const docs = await this.model
+      .find(filter)
+      .session(session)
+      .sort({ occurredAt: -1, _id: -1 })
+      .limit(safeLimit + 1)
       .lean();
     return docs.map((d) => this.mapper.toDomain(d));
   }

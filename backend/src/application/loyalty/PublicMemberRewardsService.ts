@@ -91,9 +91,10 @@ export class PublicMemberRewardsService {
         menuStatus === 'available' ? 'AVAILABLE' : 'TEMPORARILY_UNAVAILABLE';
 
       const eligible = currentPoints >= reward.pointsRequired;
+      // Exact remaining — do not clamp; negative balance yields larger remaining.
       const pointsRemaining = eligible
         ? undefined
-        : Math.max(0, reward.pointsRequired - currentPoints);
+        : reward.pointsRequired - currentPoints;
 
       publicRewards.push({
         rewardCode: reward.rewardCode,

@@ -6,6 +6,10 @@ import type {
   CustomerEarnMutationResult,
   CustomerRedeemMutation,
   CustomerRedeemMutationResult,
+  CustomerReversalMutation,
+  CustomerReversalMutationResult,
+  CustomerAdjustmentMutation,
+  CustomerAdjustmentMutationResult,
   ICustomerRepository,
 } from '../../domain/loyalty/ICustomerRepository.js';
 import { FilterObject } from '../../application/common/Filter.js';
@@ -120,6 +124,76 @@ export class MongoCustomerRepository implements ICustomerRepository {
 
     if (!updated) {
       throw new Error('CUSTOMER_REDEEM_MUTATION_FAILED');
+    }
+
+    return {
+      currentPoints: updated.currentPoints,
+    };
+  }
+
+  async applyReversalMutation(
+    customerId: Identifier,
+    mutation: CustomerReversalMutation,
+  ): Promise<CustomerReversalMutationResult> {
+    if (!Number.isInteger(mutation.pointsToReverse) || mutation.pointsToReverse < 1) {
+      throw new Error('CUSTOMER_REVERSAL_INVALID_POINTS');
+    }
+    const session = this.getActiveSession?.() ?? null;
+    const updated = await this.model
+      .findOneAndUpdate(
+        {
+          _id: customerId,
+          status: 'active',
+        },
+        {
+          $inc: {
+            currentPoints: -mutation.pointsToReverse,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, session },
+      )
+      .lean();
+
+    if (!updated) {
+      throw new Error('CUSTOMER_REVERSAL_MUTATION_FAILED');
+    }
+
+    return {
+      currentPoints: updated.currentPoints,
+    };
+  }
+
+  async applyAdjustmentMutation(
+    customerId: Identifier,
+    mutation: CustomerAdjustmentMutation,
+  ): Promise<CustomerAdjustmentMutationResult> {
+    if (!Number.isInteger(mutation.pointsDelta) || mutation.pointsDelta === 0) {
+      throw new Error('CUSTOMER_ADJUSTMENT_INVALID_POINTS');
+    }
+    const session = this.getActiveSession?.() ?? null;
+    const updated = await this.model
+      .findOneAndUpdate(
+        {
+          _id: customerId,
+          status: 'active',
+        },
+        {
+          $inc: {
+            currentPoints: mutation.pointsDelta,
+          },
+          $set: {
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, session },
+      )
+      .lean();
+
+    if (!updated) {
+      throw new Error('CUSTOMER_ADJUSTMENT_MUTATION_FAILED');
     }
 
     return {

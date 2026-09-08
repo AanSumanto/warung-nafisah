@@ -136,7 +136,13 @@ function ActivePortal({ data }: { readonly data: PublicMemberRewards }) {
   const points = data.points?.current ?? 0;
   const next = data.progress?.nextReward;
   const progressPct = next
-    ? Math.min(100, Math.round(((next.pointsRequired - next.pointsRemaining) / next.pointsRequired) * 100))
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(((next.pointsRequired - next.pointsRemaining) / next.pointsRequired) * 100),
+        ),
+      )
     : data.progress?.hasRedeemableReward
       ? 100
       : 0;
@@ -169,6 +175,11 @@ function ActivePortal({ data }: { readonly data: PublicMemberRewards }) {
         <Typography variant="subtitle1" fontWeight={700}>
           POIN
         </Typography>
+        {points < 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, px: 2 }}>
+            Poin akan bertambah kembali dari transaksi berikutnya.
+          </Typography>
+        ) : null}
       </Box>
 
       <Box>

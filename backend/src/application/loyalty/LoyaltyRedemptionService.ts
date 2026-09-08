@@ -99,7 +99,7 @@ export class LoyaltyRedemptionService {
         availability,
         pointsRemaining: eligible
           ? undefined
-          : Math.max(0, reward.pointsRequired - currentPoints),
+          : reward.pointsRequired - currentPoints,
       });
     }
     return out;

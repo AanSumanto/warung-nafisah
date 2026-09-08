@@ -4,6 +4,12 @@ export type {
   ICustomerRepository,
   CustomerEarnMutation,
   CustomerEarnMutationResult,
+  CustomerRedeemMutation,
+  CustomerRedeemMutationResult,
+  CustomerReversalMutation,
+  CustomerReversalMutationResult,
+  CustomerAdjustmentMutation,
+  CustomerAdjustmentMutationResult,
 } from './ICustomerRepository.js';
 export { LoyaltyProgram } from './LoyaltyProgram.js';
 export type { LoyaltyProgramProps, CreateLoyaltyProgramInput } from './LoyaltyProgram.js';
@@ -17,6 +23,9 @@ export type {
   LoyaltyProgramSnapshot,
   LoyaltyLedgerActor,
   LoyaltyLedgerEarnMetadata,
+  LoyaltyLedgerRedeemMetadata,
+  LoyaltyLedgerReversalMetadata,
+  LoyaltyLedgerManualMetadata,
 } from './LoyaltyLedgerEntry.js';
 export type { ILoyaltyLedgerRepository } from './ILoyaltyLedgerRepository.js';
 export { calculateEarnedPoints } from './calculateEarnedPoints.js';
@@ -24,7 +33,12 @@ export {
   LOYALTY_LEDGER_TYPES,
   IMPLEMENTED_LEDGER_TYPES,
   LOYALTY_SOURCE_TYPES,
+  MANUAL_ADJUSTMENT_ABS_MAX,
   buildEarnSaleIdempotencyKey,
+  buildRedeemRewardIdempotencyKey,
+  buildReversalRefundIdempotencyKey,
+  buildReversalVoidIdempotencyKey,
+  buildManualAdjustmentIdempotencyKey,
   type LoyaltyLedgerType,
   type LoyaltySourceType,
 } from './LoyaltyLedgerTypes.js';

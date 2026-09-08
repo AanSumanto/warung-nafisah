@@ -10,6 +10,14 @@ function asNonNegativeInt(value: unknown, field: string): number {
   return value;
 }
 
+/** currentPoints may be negative after refund reversal (LOYALTY-08 policy). */
+function asIntegerPoints(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error(`Customer document field ${field} is invalid`);
+  }
+  return value;
+}
+
 function asDate(value: unknown, field: string): Date {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
     throw new Error(`Customer document field ${field} is invalid`);
@@ -64,7 +72,7 @@ export class CustomerMapper extends BaseMongoMapper<Customer, CustomerDocument> 
         phoneNormalized: String(document.phoneNormalized),
         phoneMasked: String(document.phoneMasked),
         name: document.name ? String(document.name) : undefined,
-        currentPoints: asNonNegativeInt(document.currentPoints, 'currentPoints'),
+        currentPoints: asIntegerPoints(document.currentPoints, 'currentPoints'),
         lifetimeEarnedPoints: asNonNegativeInt(
           document.lifetimeEarnedPoints,
           'lifetimeEarnedPoints',

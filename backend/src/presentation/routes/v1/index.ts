@@ -6,6 +6,7 @@ import { createLoyaltyModule } from '../../../infrastructure/loyalty/LoyaltyModu
 import { createPosRouter } from './pos.routes.js';
 import { createCustomerRouter } from './customer.routes.js';
 import { createLoyaltyConfigRouter } from './loyalty.routes.js';
+import { createLoyaltyAdminRouter } from './loyalty-admin.routes.js';
 import { createPublicRewardsRouter } from './public-rewards.routes.js';
 
 const unitOfWork = new MongoUnitOfWork();
@@ -30,6 +31,14 @@ v1Router.use(
   createLoyaltyConfigRouter(
     loyaltyModule.loyaltyProgramService,
     loyaltyModule.rewardCatalogService,
+    posModule.authService,
+  ),
+);
+v1Router.use(
+  '/',
+  createLoyaltyAdminRouter(
+    loyaltyModule.loyaltyAnalyticsService,
+    loyaltyModule.loyaltyManualAdjustmentService,
     posModule.authService,
   ),
 );

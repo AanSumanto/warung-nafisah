@@ -6,6 +6,9 @@ import { LoyaltyConfigInstaller } from '../../application/loyalty/LoyaltyConfigI
 import { LoyaltyEarnService } from '../../application/loyalty/LoyaltyEarnService.js';
 import { LoyaltyReceiptProgressService } from '../../application/loyalty/LoyaltyReceiptProgressService.js';
 import { LoyaltyRedemptionService } from '../../application/loyalty/LoyaltyRedemptionService.js';
+import { LoyaltyReversalService } from '../../application/loyalty/LoyaltyReversalService.js';
+import { LoyaltyManualAdjustmentService } from '../../application/loyalty/LoyaltyManualAdjustmentService.js';
+import { LoyaltyAnalyticsService } from '../../application/loyalty/LoyaltyAnalyticsService.js';
 import { PublicMemberRewardsService } from '../../application/loyalty/PublicMemberRewardsService.js';
 import { getCustomerModel } from './documents/CustomerDocument.js';
 import { getLoyaltyProgramModel } from './documents/LoyaltyProgramDocument.js';
@@ -60,6 +63,11 @@ export function createLoyaltyModule(unitOfWork = new MongoUnitOfWork()) {
     programRepository,
     unitOfWork,
   );
+  const loyaltyReversalService = new LoyaltyReversalService(
+    customerRepository,
+    ledgerRepository,
+    unitOfWork,
+  );
   const loyaltyReceiptProgressService = new LoyaltyReceiptProgressService(
     rewardRepository,
     menuLookup,
@@ -78,6 +86,17 @@ export function createLoyaltyModule(unitOfWork = new MongoUnitOfWork()) {
     rewardRepository,
     menuLookup,
   );
+  const loyaltyManualAdjustmentService = new LoyaltyManualAdjustmentService(
+    customerRepository,
+    ledgerRepository,
+    programRepository,
+    unitOfWork,
+  );
+  const loyaltyAnalyticsService = new LoyaltyAnalyticsService(
+    customerRepository,
+    ledgerRepository,
+    loyaltyEarnService,
+  );
 
   return {
     unitOfWork,
@@ -91,9 +110,12 @@ export function createLoyaltyModule(unitOfWork = new MongoUnitOfWork()) {
     rewardCatalogService,
     loyaltyConfigInstaller,
     loyaltyEarnService,
+    loyaltyReversalService,
     loyaltyReceiptProgressService,
     publicMemberRewardsService,
     loyaltyRedemptionService,
+    loyaltyManualAdjustmentService,
+    loyaltyAnalyticsService,
   };
 }
 

@@ -149,7 +149,7 @@ describe('Operational POS MVP Integration', () => {
     const res = await request(app)
       .get('/api/v1/owner/dashboard/today')
       .set('Authorization', `Bearer ${kasirToken}`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
   it('lists menus for owner management and updates harga jual', async () => {

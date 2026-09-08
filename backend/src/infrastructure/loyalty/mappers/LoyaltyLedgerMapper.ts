@@ -18,6 +18,34 @@ function mapMetadata(raw: Record<string, unknown>, type: LoyaltyLedgerType): Loy
       rewardHppSnapshot: Number(raw.rewardHppSnapshot ?? 0),
     };
   }
+  if (
+    type === 'REVERSAL_REFUND' ||
+    type === 'REVERSAL_VOID' ||
+    raw.kind === 'REVERSAL_REFUND' ||
+    raw.kind === 'REVERSAL_VOID'
+  ) {
+    const kind =
+      type === 'REVERSAL_VOID' || raw.kind === 'REVERSAL_VOID'
+        ? 'REVERSAL_VOID'
+        : 'REVERSAL_REFUND';
+    return {
+      kind,
+      originalLedgerEntryId: String(raw.originalLedgerEntryId ?? ''),
+      originalOrderId: String(raw.originalOrderId ?? ''),
+      pointsReversed: Number(raw.pointsReversed ?? 0),
+      reason: raw.reason ? String(raw.reason) : undefined,
+      refundBusinessRef: raw.refundBusinessRef ? String(raw.refundBusinessRef) : undefined,
+      voidBusinessRef: raw.voidBusinessRef ? String(raw.voidBusinessRef) : undefined,
+    };
+  }
+  if (type === 'MANUAL_ADJUSTMENT' || raw.kind === 'MANUAL_ADJUSTMENT') {
+    return {
+      kind: 'MANUAL_ADJUSTMENT',
+      reason: String(raw.reason ?? ''),
+      note: raw.note ? String(raw.note) : undefined,
+      requestId: String(raw.requestId ?? ''),
+    };
+  }
   return {
     kind: 'EARN_SALE',
     eligiblePaidAmount: Number(raw.eligiblePaidAmount ?? 0),

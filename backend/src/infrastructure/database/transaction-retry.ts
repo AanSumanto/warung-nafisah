@@ -19,6 +19,8 @@ export function isTransientTransactionError(error: unknown): boolean {
     message.includes('has been aborted') ||
     message.includes('transactionaborted') ||
     message.includes('loyalty_earn_idempotent_race') ||
+    message.includes('loyalty_reversal_idempotent_race') ||
+    message.includes('loyalty_manual_adjustment_idempotent_race') ||
     message.includes('e11000') ||
     message.includes('duplicate key')
   );

@@ -224,7 +224,7 @@ describe('LOYALTY-02 Program + Reward Catalog', () => {
       .put('/api/v1/loyalty/program')
       .set('Authorization', `Bearer ${kasirToken}`)
       .send({ pointEarnRate: 7000 });
-    expect(kasirMutate.status).toBe(401);
+    expect(kasirMutate.status).toBe(403);
   });
 
   it('lists both 100-pt chicken rewards separately with deterministic order', async () => {
@@ -274,7 +274,7 @@ describe('LOYALTY-02 Program + Reward Catalog', () => {
         hppEstimate: 100,
         sortOrder: 99,
       });
-    expect(kasirCreate.status).toBe(401);
+    expect(kasirCreate.status).toBe(403);
 
     const badMenu = await request(app)
       .post('/api/v1/loyalty/rewards')

@@ -24,6 +24,16 @@ export interface CustomerRedeemMutationResult {
   readonly currentPoints: number;
 }
 
+export interface CustomerReversalMutation {
+  /** Absolute points to reverse (positive). Applied as $inc -pointsToReverse. */
+  readonly pointsToReverse: number;
+  readonly occurredAt: Date;
+}
+
+export interface CustomerReversalMutationResult {
+  readonly currentPoints: number;
+}
+
 export interface ICustomerRepository {
   save(customer: Customer): Promise<Customer>;
   findById(id: Identifier): Promise<Customer | null>;
@@ -39,10 +49,36 @@ export interface ICustomerRepository {
   ): Promise<CustomerEarnMutationResult>;
   /**
    * Atomic guarded redeem: status active AND currentPoints >= pointsRequired.
-   * Never allows negative balance.
+   * Never allows negative balance from redemption itself.
    */
   applyRedeemMutation(
     customerId: Identifier,
     mutation: CustomerRedeemMutation,
   ): Promise<CustomerRedeemMutationResult>;
+  /**
+   * Atomic reverse of prior earn points. Intentionally allows negative currentPoints.
+   * Does NOT decrement lifetimeEarnedPoints (gross earned remains).
+   * Does NOT mutate totalSpending / transactionCount (deferred until operational refund).
+   */
+  applyReversalMutation(
+    customerId: Identifier,
+    mutation: CustomerReversalMutation,
+  ): Promise<CustomerReversalMutationResult>;
+  /**
+   * Atomic signed delta for MANUAL_ADJUSTMENT. Allows negative balance.
+   * Does NOT mutate lifetimeEarned / lifetimeRedeemed / spending counters.
+   */
+  applyAdjustmentMutation(
+    customerId: Identifier,
+    mutation: CustomerAdjustmentMutation,
+  ): Promise<CustomerAdjustmentMutationResult>;
+}
+
+export interface CustomerAdjustmentMutation {
+  readonly pointsDelta: number;
+  readonly occurredAt: Date;
+}
+
+export interface CustomerAdjustmentMutationResult {
+  readonly currentPoints: number;
 }

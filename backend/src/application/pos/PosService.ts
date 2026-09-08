@@ -1,4 +1,4 @@
-import { NotFoundException, ValidationException, ForbiddenException } from '../../core/exceptions/BaseException.js';
+import { NotFoundException, ValidationException, ForbiddenException, ConflictException } from '../../core/exceptions/BaseException.js';
 import type { IRepository } from '../../core/persistence/IBaseRepository.js';
 import { Order } from '../../domain/pos/Order.js';
 import { OrderItem } from '../../domain/pos/OrderItem.js';
@@ -27,6 +27,10 @@ import type { LoyaltyRedemptionService } from '../loyalty/LoyaltyRedemptionServi
 import type { ILoyaltyRewardRepository } from '../../domain/loyalty/ILoyaltyRewardRepository.js';
 import { buildMemberPortalUrl } from '../loyalty/buildMemberPortalUrl.js';
 import { getEnv } from '../../config/env.js';
+import {
+  isTransientTransactionError,
+  withTransactionRetry,
+} from '../../infrastructure/database/transaction-retry.js';
 import { deriveEligiblePaidAmount } from './deriveEligiblePaidAmount.js';
 import {
   loyaltyNoMember,
@@ -468,7 +472,11 @@ export class PosService {
     correlationId?: string;
     requester: RequesterContext;
   }): Promise<PayOrderResult> {
-    const result = await this.deps.unitOfWork.execute(async () => {
+    let result: PayOrderResult;
+    try {
+      result = await withTransactionRetry(
+        async () =>
+          this.deps.unitOfWork.execute(async () => {
       const session = this.deps.unitOfWork.getActiveSession();
       let order = await this.deps.orderRepository.findById(createIdentifier(input.orderId));
       if (!order) throw new NotFoundException('Order tidak ditemukan');
@@ -606,7 +614,20 @@ export class PosService {
       }
 
       return { order: finalOrder, loyalty: loyaltyResult };
-    });
+          }),
+        { maxAttempts: 8, baseDelayMs: 25 },
+      );
+    } catch (error) {
+      if (error instanceof DomainError) {
+        mapDomainError(error);
+      }
+      if (isTransientTransactionError(error)) {
+        throw new ConflictException('Transaksi sedang diproses. Silakan coba lagi.', {
+          code: 'POS_TRANSACTION_CONFLICT',
+        });
+      }
+      throw error;
+    }
 
     await this.deps.outboxDispatcher.dispatchPending();
     return result;

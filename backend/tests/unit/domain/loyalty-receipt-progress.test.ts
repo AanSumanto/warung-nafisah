@@ -77,6 +77,14 @@ describe('buildLoyaltyReceiptProgress', () => {
     const progress = buildLoyaltyReceiptProgress(90, rewards);
     expect(progress.nextReward?.name).toBe('Ayam Paha');
   });
+
+  it('negative balance: no eligible, exact remaining, recovery message', () => {
+    const progress = buildLoyaltyReceiptProgress(-7, catalog);
+    expect(progress.eligibleRewardCount).toBe(0);
+    expect(progress.hasRedeemableThreshold).toBe(false);
+    expect(progress.nextReward?.pointsRemaining).toBe(22);
+    expect(progress.progressMessage).toContain('bertambah kembali');
+  });
 });
 
 describe('buildMemberPortalUrl', () => {

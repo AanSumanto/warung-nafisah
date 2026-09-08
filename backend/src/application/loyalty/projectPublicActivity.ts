@@ -9,8 +9,8 @@ export const PUBLIC_ACTIVITY_LIMIT = 10;
 const LABELS: Partial<Record<LoyaltyLedgerType, { type: PublicActivityType; label: string }>> = {
   EARN_SALE: { type: 'EARN', label: 'Belanja di Warung Nafisah' },
   REDEEM_REWARD: { type: 'REDEEM', label: 'Tukar reward' },
-  REVERSAL_VOID: { type: 'ADJUSTMENT', label: 'Penyesuaian poin' },
-  REVERSAL_REFUND: { type: 'ADJUSTMENT', label: 'Penyesuaian poin' },
+  REVERSAL_VOID: { type: 'ADJUSTMENT', label: 'Pembatalan transaksi' },
+  REVERSAL_REFUND: { type: 'ADJUSTMENT', label: 'Penyesuaian poin refund' },
   EXPIRY: { type: 'ADJUSTMENT', label: 'Poin kedaluwarsa' },
   MANUAL_ADJUSTMENT: { type: 'ADJUSTMENT', label: 'Penyesuaian poin' },
 };

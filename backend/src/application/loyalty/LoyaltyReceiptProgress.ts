@@ -11,8 +11,8 @@ export interface LoyaltyReceiptProgress {
   /** Deterministic next locked reward by sortOrder; omitted if none. */
   readonly nextReward?: LoyaltyReceiptNextReward;
   /**
-   * Compact Indonesian progress line for 58mm.
-   * Never contains negative remaining points.
+   * Compact Indonesian progress line for 58mm / portal.
+   * Negative balance uses recovery wording (not debt language).
    */
   readonly progressMessage: string;
 }
@@ -30,13 +30,14 @@ export interface RewardProgressInput {
 /**
  * Pure, authoritative receipt progress from balance + catalog.
  * Does not hardcode 15/30/45/... thresholds.
+ * Negative balance is valid (post-refund); remaining uses exact arithmetic.
  */
 export function buildLoyaltyReceiptProgress(
   balanceAfter: number,
   rewards: readonly RewardProgressInput[],
 ): LoyaltyReceiptProgress {
-  if (!Number.isInteger(balanceAfter) || balanceAfter < 0) {
-    throw new Error('balanceAfter must be a non-negative integer');
+  if (!Number.isInteger(balanceAfter)) {
+    throw new Error('balanceAfter must be an integer');
   }
 
   const active = rewards
@@ -59,7 +60,18 @@ export function buildLoyaltyReceiptProgress(
   let nextReward: LoyaltyReceiptNextReward | undefined;
   let progressMessage: string;
 
-  if (next) {
+  if (balanceAfter < 0) {
+    progressMessage = 'Poin akan bertambah kembali dari transaksi berikutnya.';
+    if (next) {
+      const pointsRemaining = next.pointsRequired - balanceAfter;
+      nextReward = {
+        rewardCode: next.rewardCode,
+        name: next.name,
+        pointsRequired: next.pointsRequired,
+        pointsRemaining,
+      };
+    }
+  } else if (next) {
     const sameThreshold = candidates.filter((r) => r.pointsRequired === next.pointsRequired);
     const pointsRemaining = next.pointsRequired - balanceAfter;
     nextReward = {

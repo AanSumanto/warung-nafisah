@@ -67,6 +67,14 @@ const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
     /**
+     * Technical gate for owner MANUAL_ADJUSTMENT.
+     * Default OFF — analytics read remains available to owner.
+     */
+    LOYALTY_ADMIN_ADJUSTMENT_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    /**
      * Public frontend origin for member portal URLs (e.g. https://pos.example.com).
      * Required only when LOYALTY_RECEIPT_QR_ENABLED=true.
      */

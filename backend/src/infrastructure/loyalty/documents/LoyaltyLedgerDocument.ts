@@ -66,6 +66,8 @@ const loyaltyLedgerSchema = new Schema<LoyaltyLedgerDocument>(
 loyaltyLedgerSchema.index({ customerId: 1, occurredAt: -1 });
 loyaltyLedgerSchema.index({ sourceType: 1, sourceId: 1 });
 loyaltyLedgerSchema.index({ customerId: 1, createdAt: -1 });
+loyaltyLedgerSchema.index({ type: 1, occurredAt: -1 });
+loyaltyLedgerSchema.index({ occurredAt: -1, type: 1 });
 
 /** Soft schema guard — application must never mutate/delete ledger rows. */
 loyaltyLedgerSchema.pre(

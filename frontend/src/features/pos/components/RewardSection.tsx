@@ -114,6 +114,11 @@ export function RewardSection({
               <Typography variant="body2" sx={{ mb: 1 }}>
                 Poin saat ini: {data?.currentPoints ?? 0}
               </Typography>
+              {(data?.currentPoints ?? 0) < 0 ? (
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Poin akan bertambah kembali dari transaksi berikutnya. Reward belum bisa ditukar.
+                </Typography>
+              ) : null}
               <List dense>
                 {(data?.rewards ?? []).map((reward) => {
                   const disabled =

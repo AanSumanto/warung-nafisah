@@ -36,6 +36,12 @@ export class ForbiddenException extends BaseException {
   }
 }
 
+export class ConflictException extends BaseException {
+  constructor(message = 'Konflik transaksi', details?: Record<string, unknown>) {
+    super('SYS_409', message, 409, details);
+  }
+}
+
 export class InfrastructureException extends BaseException {
   constructor(message: string, details?: Record<string, unknown>) {
     super('SYS_500', message, 503, details);

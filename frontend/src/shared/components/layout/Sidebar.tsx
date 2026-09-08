@@ -5,6 +5,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import HistoryIcon from '@mui/icons-material/History';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Riwayat', href: '/pos/history', icon: <HistoryIcon /> },
   { label: 'Shift', href: '/shift', icon: <WorkOutlineIcon /> },
   { label: 'Ringkasan', href: '/owner', icon: <DashboardIcon />, ownerOnly: true },
+  { label: 'Rewards', href: '/owner/loyalty', icon: <LoyaltyIcon />, ownerOnly: true },
   { label: 'Menu', href: '/owner/menus', icon: <RestaurantMenuIcon />, ownerOnly: true },
 ];
 
