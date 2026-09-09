@@ -191,13 +191,11 @@ describe('rawbt bridge', () => {
   });
 
   it('detects Android user agent', () => {
-    const original = navigator.userAgent;
-    Object.defineProperty(navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36',
-      configurable: true,
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36',
     });
     expect(isAndroidDevice()).toBe(true);
-    Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true });
+    vi.unstubAllGlobals();
   });
 
   it('dispatches via Mike42 intent URL (window.location.href)', () => {
@@ -234,17 +232,16 @@ describe('PrinterAdapter factory', () => {
 });
 
 describe('RawBtPrinterAdapter', () => {
-  const originalUa = navigator.userAgent;
-
+  // Vitest runs under Node. CI (and Node <22) may have no navigator global;
+  // local Node 22+ may expose navigator.userAgent === 'Node.js/…'. Stub per-test.
   beforeEach(() => {
-    Object.defineProperty(navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36',
-      configurable: true,
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36',
     });
   });
 
   afterEach(() => {
-    Object.defineProperty(navigator, 'userAgent', { value: originalUa, configurable: true });
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
