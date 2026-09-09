@@ -48,10 +48,10 @@ function rewardCompatible(
 }
 
 function programCompatible(existing: LoyaltyProgram): boolean {
+  // enabled may be true after go-live activation — installer must not conflict solely for that.
   return (
     existing.programCode === LOYALTY_PROGRAM_CODE &&
-    existing.pointEarnRate === DEFAULT_POINT_EARN_RATE &&
-    existing.enabled === false
+    existing.pointEarnRate === DEFAULT_POINT_EARN_RATE
   );
 }
 

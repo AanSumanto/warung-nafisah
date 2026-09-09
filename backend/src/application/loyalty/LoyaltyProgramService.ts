@@ -53,23 +53,16 @@ export class LoyaltyProgramService {
   }
 
   /**
-   * Owner may update pointEarnRate / programName.
-   * Enabling the program is intentionally NOT supported until LOYALTY-03/04.
+   * Owner may update pointEarnRate / programName / enabled.
+   * Enabling starts earn + unlocks public portal AVAILABLE state.
+   * Pair with LOYALTY_POS_UI_ENABLED / REDEMPTION / QR env gates for phased rollout.
    */
   async updateProgramConfig(input: {
     pointEarnRate?: number;
     programName?: string;
     updatedBy: string;
-    /** Rejected if true — earning engine not deployed. */
     enabled?: boolean;
   }): Promise<LoyaltyProgramDto> {
-    if (input.enabled === true) {
-      throw new ValidationException(
-        'Aktivasi program loyalty belum diizinkan. Engine earn/ledger belum tersedia (LOYALTY-03/04).',
-        { code: 'LOYALTY_PROGRAM_ACTIVATION_BLOCKED' },
-      );
-    }
-
     const program = await this.programs.findByProgramCode(LOYALTY_PROGRAM_CODE);
     if (!program) {
       throw new NotFoundException('Program loyalty belum diinstal', {
@@ -82,6 +75,7 @@ export class LoyaltyProgramService {
       updated = program.updateConfig({
         pointEarnRate: input.pointEarnRate,
         programName: input.programName,
+        enabled: input.enabled,
         updatedBy: input.updatedBy,
       });
     } catch (error) {

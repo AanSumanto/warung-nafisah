@@ -12,7 +12,7 @@ import { getEnv } from '../../../config/env.js';
 const updateProgramSchema = z.object({
   pointEarnRate: z.number().int().positive().optional(),
   programName: z.string().trim().min(1).max(120).optional(),
-  /** Accepted only as false / omitted — true is blocked in service. */
+  /** Accepted as true/false — owner operational activation / kill switch. */
   enabled: z.boolean().optional(),
 });
 

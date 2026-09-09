@@ -192,7 +192,7 @@ describe('LOYALTY-02 Program + Reward Catalog', () => {
     expect(after?.status).toBe(before?.status);
   });
 
-  it('owner can read/update program; cannot enable; kasir read-only', async () => {
+  it('owner can read/update program including enable/disable; kasir read-only', async () => {
     await loyaltyModule.loyaltyConfigInstaller.install({ actorId: 'test' });
 
     const ownerRead = await request(app)
@@ -210,8 +210,15 @@ describe('LOYALTY-02 Program + Reward Catalog', () => {
       .put('/api/v1/loyalty/program')
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ enabled: true });
-    expect(enableAttempt.status).toBe(400);
-    expect(enableAttempt.body.error.message).toMatch(/belum diizinkan/i);
+    expect(enableAttempt.status).toBe(200);
+    expect(enableAttempt.body.data.enabled).toBe(true);
+
+    const disableAgain = await request(app)
+      .put('/api/v1/loyalty/program')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ enabled: false });
+    expect(disableAgain.status).toBe(200);
+    expect(disableAgain.body.data.enabled).toBe(false);
 
     const updateRate = await request(app)
       .put('/api/v1/loyalty/program')

@@ -122,12 +122,14 @@ export class LoyaltyProgram extends BaseEntity<LoyaltyProgramProps> {
   }
 
   /**
-   * Update earn rate / display name. Increments version on economic change.
-   * Does NOT enable the program — activation is blocked until LOYALTY-03/04.
+   * Update earn rate / display name / enabled flag.
+   * Increments version when pointEarnRate changes (economic).
+   * Enabling/disabling is an operational gate flip — does not rewrite history.
    */
   updateConfig(input: {
     pointEarnRate?: number;
     programName?: string;
+    enabled?: boolean;
     updatedBy: string;
   }): LoyaltyProgram {
     if (!input.updatedBy?.trim()) {
@@ -136,6 +138,7 @@ export class LoyaltyProgram extends BaseEntity<LoyaltyProgramProps> {
 
     let pointEarnRate = this.props.pointEarnRate;
     let programName = this.props.programName;
+    let enabled = this.props.enabled;
     let version = this.props.version;
     let effectiveFrom = this.props.effectiveFrom;
     let changed = false;
@@ -161,6 +164,11 @@ export class LoyaltyProgram extends BaseEntity<LoyaltyProgramProps> {
       }
     }
 
+    if (input.enabled !== undefined && input.enabled !== this.props.enabled) {
+      enabled = input.enabled;
+      changed = true;
+    }
+
     if (!changed) {
       return this;
     }
@@ -171,11 +179,10 @@ export class LoyaltyProgram extends BaseEntity<LoyaltyProgramProps> {
         ...this.props,
         pointEarnRate,
         programName,
+        enabled,
         version,
         effectiveFrom,
         updatedBy: input.updatedBy.trim(),
-        // enabled intentionally unchanged — never flipped true here
-        enabled: this.props.enabled,
       },
       this.id,
       this.createdAt,

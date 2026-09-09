@@ -46,12 +46,17 @@ describe('LoyaltyProgram', () => {
     expect(updated.enabled).toBe(false);
   });
 
-  it('does not enable via updateConfig', () => {
+  it('can enable/disable via updateConfig without changing earn rate version', () => {
     const program = LoyaltyProgram.createBaseline({
       id: 'prog-5',
       updatedBy: 'user_owner',
     });
-    const updated = program.updateConfig({ programName: 'Nafisah Rewards V1', updatedBy: 'x' });
-    expect(updated.enabled).toBe(false);
+    const renamed = program.updateConfig({ programName: 'Nafisah Rewards V1', updatedBy: 'x' });
+    expect(renamed.enabled).toBe(false);
+    const enabled = renamed.updateConfig({ enabled: true, updatedBy: 'x' });
+    expect(enabled.enabled).toBe(true);
+    expect(enabled.version).toBe(1);
+    const disabled = enabled.updateConfig({ enabled: false, updatedBy: 'x' });
+    expect(disabled.enabled).toBe(false);
   });
 });
