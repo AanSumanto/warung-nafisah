@@ -63,6 +63,7 @@ export function MemberLookupSheet({ open, onClose, onSelect, onSkip }: MemberLoo
         customerId: customer.id,
         phoneMasked: customer.phoneMasked,
         name: customer.name,
+        currentPoints: customer.currentPoints,
       });
     } catch (err) {
       if (isApiNotFound(err)) {
@@ -92,6 +93,7 @@ export function MemberLookupSheet({ open, onClose, onSelect, onSkip }: MemberLoo
         customerId: customer.id,
         phoneMasked: customer.phoneMasked,
         name: customer.name,
+        currentPoints: customer.currentPoints,
       });
       reset();
       onClose();
@@ -135,6 +137,11 @@ export function MemberLookupSheet({ open, onClose, onSelect, onSkip }: MemberLoo
                   <Typography variant="body2" color="text.secondary">
                     {found.phoneMasked}
                   </Typography>
+                  {typeof found.currentPoints === 'number' ? (
+                    <Typography variant="body2" color="primary.main" fontWeight={700}>
+                      Saldo: {found.currentPoints} poin
+                    </Typography>
+                  ) : null}
                   <AppButton
                     fullWidth
                     sx={{ mt: 1.5 }}

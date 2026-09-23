@@ -154,6 +154,10 @@ export default function PosPage() {
         enabled={memberUiEnabled}
         member={member}
         onSearch={() => setMemberSheetOpen(true)}
+        onSelectMember={(selection) => {
+          setMember(selection);
+          setSelectedRewardCode(null);
+        }}
         onClear={() => {
           setMember(null);
           setSelectedRewardCode(null);
@@ -272,6 +276,7 @@ export default function PosPage() {
         open={paymentOpen}
         total={cartState.total}
         loading={paying}
+        memberSlot={memberSlot}
         onClose={() => setPaymentOpen(false)}
         onConfirm={(method, paidAmount) => void handlePay(method, paidAmount)}
       />

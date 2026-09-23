@@ -80,4 +80,5 @@ export interface PosMemberSelection {
   readonly customerId: string;
   readonly phoneMasked: string;
   readonly name?: string;
+  readonly currentPoints?: number;
 }

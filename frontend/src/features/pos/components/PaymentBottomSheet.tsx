@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect, useState, type ReactNode } from 'react';
 import CloseIcon from '@mui/icons-material/Close';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -7,7 +8,6 @@ import Chip from '@mui/material/Chip';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
 import { AppButton } from '@/shared/components/ui';
 import { BOTTOM_NAV_HEIGHT } from '@/shared/theme/breakpoints';
 import {
@@ -23,6 +23,7 @@ interface PaymentBottomSheetProps {
   readonly open: boolean;
   readonly total: number;
   readonly loading?: boolean;
+  readonly memberSlot?: ReactNode;
   readonly onClose: () => void;
   readonly onConfirm: (method: PaymentMethod, paidAmount: number) => void;
 }
@@ -31,6 +32,7 @@ export function PaymentBottomSheet({
   open,
   total,
   loading = false,
+  memberSlot,
   onClose,
   onConfirm,
 }: PaymentBottomSheetProps) {
@@ -58,6 +60,7 @@ export function PaymentBottomSheet({
     <Drawer
       anchor="bottom"
       open={open}
+      ModalProps={{ disablePortal: true }}
       onClose={loading ? undefined : onClose}
       PaperProps={{
         sx: {
@@ -84,6 +87,8 @@ export function PaymentBottomSheet({
         <Typography variant="h4" color="primary.main" fontWeight={900} sx={{ mb: 2 }}>
           {formatIdr(total)}
         </Typography>
+
+        {memberSlot ? <Box sx={{ mb: 2 }}>{memberSlot}</Box> : null}
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 2 }}>
           {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((key) => {
